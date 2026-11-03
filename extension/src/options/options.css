@@ -1,0 +1,105 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --ok: #1a7f37;
+  --error: #cf222e;
+  --button-bg: #f6f8fa;
+  font: 15px/1.5 system-ui, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1d21;
+    --fg: #e6e8eb;
+    --muted: #9aa3ad;
+    --border: #3a3f46;
+    --ok: #4ac26b;
+    --error: #ff7b72;
+    --button-bg: #2a2e34;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 1.5rem;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+section {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--button-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+#connection-result:not(:empty) {
+  margin-top: 0.75rem;
+}
+
+#connection-result[data-state="ok"] .status {
+  color: var(--ok);
+}
+
+#connection-result[data-state="error"] .status {
+  color: var(--error);
+}
+
+#connection-result dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 1rem;
+  margin: 0.5rem 0 0;
+}
+
+#connection-result dt {
+  color: var(--muted);
+}
+
+#connection-result dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 1.5rem;
+}
