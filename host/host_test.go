@@ -163,8 +163,10 @@ func TestHandleValidatesRequests(t *testing.T) {
 		{"echo too long", `{"type":"ping","echo":"` + strings.Repeat("x", maxEcho+1) + `"}`, codeBadRequest},
 		{"invalid UTF-8", "{\"type\":\"ping\",\"echo\":\"\xff\"}", codeBadRequest},
 		{"trailing data", `{"type":"ping"} {}`, codeBadRequest},
-		{"listFiles not yet", `{"type":"listFiles"}`, codeNotImplemented},
-		{"save not yet", `{"type":"save"}`, codeNotImplemented},
+		{"listFiles needs a folder", `{"type":"listFiles"}`, codeFolderMissing},
+		{"save needs a hotstring line", `{"type":"save"}`, codeBadLine},
+		{"scan not yet", `{"type":"scan"}`, codeNotImplemented},
+		{"undo not yet", `{"type":"undo"}`, codeNotImplemented},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

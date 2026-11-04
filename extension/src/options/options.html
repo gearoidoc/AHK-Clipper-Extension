@@ -4,18 +4,60 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AHK Hotstring Clipper settings</title>
+    <link rel="stylesheet" href="theme.css">
     <link rel="stylesheet" href="options.css">
     <script type="module" src="options.js"></script>
   </head>
   <body>
     <main>
-      <h1>AHK Hotstring Clipper</h1>
+      <h1>AHK Hotstring Clipper <span id="saved" class="saved" role="status" aria-live="polite"></span></h1>
+
+      <section aria-labelledby="folder-heading">
+        <h2 id="folder-heading">Hotstring folder</h2>
+        <p>The folder that holds your <code>.ahk</code> files. The extension only ever reads and writes inside it.</p>
+        <label for="folder">Folder path</label>
+        <div class="row">
+          <input id="folder" type="text" spellcheck="false" autocomplete="off" placeholder="C:\Users\you\Documents\Hotstrings">
+          <button id="check-folder" type="button">Check folder</button>
+        </div>
+        <div id="folder-result" class="result" role="status" aria-live="polite"></div>
+        <div id="setup" class="setup" hidden>
+          <p>Set up this folder to create <code id="setup-main">Main.ahk</code>, the one script to run, and <code>General.ahk</code>, a first category it includes. New categories you save to get included automatically.</p>
+          <button id="setup-folder" type="button" class="primary">Set up this folder</button>
+        </div>
+
+        <fieldset>
+          <legend>After saving, restart</legend>
+          <label class="choice">
+            <input type="radio" name="reload" value="main">
+            A main script that <code>#Include</code>s the others (recommended):
+            <input id="main-script" type="text" spellcheck="false" autocomplete="off" aria-label="Main script file name">
+          </label>
+          <label class="choice">
+            <input type="radio" name="reload" value="written">
+            The file the hotstring was saved to (each file runs on its own)
+          </label>
+        </fieldset>
+      </section>
+
+      <section aria-labelledby="ahk-heading">
+        <h2 id="ahk-heading">AutoHotkey</h2>
+        <label for="ahk-path">AutoHotkey64.exe</label>
+        <input id="ahk-path" type="text" spellcheck="false" autocomplete="off" placeholder="Found automatically">
+        <p class="hint">Leave empty to use the installed AutoHotkey v2. Test connection shows the one it finds.</p>
+      </section>
 
       <section aria-labelledby="host-heading">
         <h2 id="host-heading">Native host</h2>
         <p>The extension never writes files itself. A small program on this PC does that for it, so Chrome needs to be able to reach it.</p>
         <button id="test-connection" type="button">Test connection</button>
-        <div id="connection-result" role="status" aria-live="polite"></div>
+        <div id="connection-result" class="result" role="status" aria-live="polite"></div>
+      </section>
+
+      <section aria-labelledby="shortcut-heading">
+        <h2 id="shortcut-heading">Keyboard shortcut</h2>
+        <p>Select text on a page and press <kbd id="shortcut">Alt+Shift+H</kbd>, or right-click it and choose <em>Add as AHK hotstring</em>.</p>
+        <button id="change-shortcut" type="button">Change shortcut</button>
       </section>
 
       <p class="note">Local only: nothing leaves this PC. The extension has no network access, and the host contains no networking code.</p>

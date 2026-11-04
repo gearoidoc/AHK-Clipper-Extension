@@ -1,0 +1,136 @@
+html,
+body {
+  background: transparent;
+}
+
+body {
+  font-size: 14px;
+}
+
+#card {
+  box-sizing: border-box;
+  width: 360px;
+  padding: 12px 14px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+h1 {
+  font-size: 15px;
+  margin: 0;
+}
+
+button.icon {
+  border: none;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--muted);
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.count {
+  font-weight: normal;
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+input,
+textarea,
+select {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 3px;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+input,
+textarea {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 4.5em;
+  max-height: 16em;
+}
+
+.hint {
+  min-height: 0;
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hint:empty {
+  display: none;
+}
+
+.hint[data-kind="error"] {
+  color: var(--error);
+}
+
+.hint[data-kind="warning"] {
+  color: var(--warn);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.keys {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.banner {
+  margin: 4px 0 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.banner p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 9em;
+  overflow-y: auto;
+}
+
+.banner button {
+  margin-top: 6px;
+}
+
+.done {
+  margin: 4px 0 0;
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.done code {
+  color: var(--fg);
+}
