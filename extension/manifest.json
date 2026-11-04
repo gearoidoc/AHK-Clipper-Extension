@@ -3,7 +3,14 @@
   "name": "AHK Hotstring Clipper",
   "description": "Turn highlighted text into an AutoHotkey v2 hotstring. Local only: it talks to a native host on this PC and never to the network.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqXcDcb282ePMlWD0WfwiKh1XTcwhiuafyXQwslvE32EOExyMCibXPHTg4zRoaviOKgMUnGT/xpp5O3dYGP/kWE/sGI1onbIAFt02xssK/8wdE4H9bojKWMgTSwdYPKD4lpN77/eXnTbWR4mF5nj4e6JnijcTuull6CdRCzFbdcZt0rsveLn7CqJMWmXH2qJazmdAraktAQQe9motCokiXGoTh/HCyX0oA7RUUTYA2MQ4J+LyRrFWHyNROhhvNa/a9/UgCYTE3xEMCH+tQtd36k4KPfRGV9mkOZOEDsMz6NCM8dTz4dHfnB7DAW85c2UhxWRd51JVVM6L0XiiE9Ml/wIDAQAB",
-  "permissions": ["nativeMessaging"],
+  "minimum_chrome_version": "130",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -12,6 +19,25 @@
     "page": "options.html",
     "open_in_tab": true
   },
+  "commands": {
+    "open-dialog": {
+      "suggested_key": {
+        "default": "Alt+Shift+H"
+      },
+      "description": "Add the selected text as an AHK hotstring"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "dialog.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ],
+      "use_dynamic_url": true
+    }
+  ],
   "content_security_policy": {
     "extension_pages": "default-src 'self'; script-src 'self'; object-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'"
   }

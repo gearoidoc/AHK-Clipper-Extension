@@ -1,6 +1,6 @@
 {
   "name": "ahk-hotstring-clipper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Turn highlighted text into an AutoHotkey v2 hotstring, written by a local native host.",
   "private": true,
   "type": "module",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:e2e": "node scripts/build.mjs --e2e",
     "build:host": "node scripts/build-host.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p extension/test/tsconfig.json",
     "test": "npm run test:ts && npm run test:go",
@@ -17,7 +18,7 @@
     "check:network": "node scripts/check-no-network.mjs",
     "e2e": "node scripts/e2e.mjs",
     "release": "npm run build && npm run build:host && npm run check:network && node scripts/release.mjs",
-    "verify": "npm run typecheck && npm test && npm run build && npm run build:host && npm run check:network && npm run e2e"
+    "verify": "npm run typecheck && npm test && npm run build && npm run build:e2e && npm run build:host && npm run check:network && npm run e2e"
   },
   "devDependencies": {
     "@puppeteer/browsers": "^3.2.6",

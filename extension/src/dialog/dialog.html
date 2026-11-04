@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Add AHK hotstring</title>
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="dialog.css">
+    <script type="module" src="dialog.js"></script>
+  </head>
+  <body>
+    <main id="card">
+      <header>
+        <h1>Add AHK hotstring</h1>
+        <button type="button" id="close" class="icon" aria-label="Close" title="Close (Esc)">&times;</button>
+      </header>
+
+      <div id="banner" class="banner" role="alert" hidden>
+        <p id="banner-text"></p>
+        <button type="button" id="open-settings" hidden>Open Settings</button>
+      </div>
+
+      <form id="form" novalidate>
+        <label for="trigger">Trigger</label>
+        <input id="trigger" type="text" autocomplete="off" spellcheck="false" aria-describedby="trigger-hint">
+        <p id="trigger-hint" class="hint"></p>
+
+        <label for="text">Replacement <span id="count" class="count"></span></label>
+        <textarea id="text" rows="4" spellcheck="false" aria-describedby="text-hint"></textarea>
+        <p id="text-hint" class="hint"></p>
+
+        <label for="file">File</label>
+        <select id="file"></select>
+
+        <div class="actions">
+          <span class="keys">Enter saves &middot; Esc closes</span>
+          <button type="submit" id="save" class="primary">Save</button>
+        </div>
+      </form>
+
+      <p id="done" class="done" role="status" hidden></p>
+    </main>
+  </body>
+</html>
