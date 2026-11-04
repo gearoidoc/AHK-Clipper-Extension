@@ -48,6 +48,10 @@ func handle(raw []byte) any {
 		handler = handleScan
 	case "undo":
 		handler = handleUndo
+	case "delete":
+		handler = handleDelete
+	case "import":
+		handler = handleImport
 	case "reload":
 		return errorResponse(codeNotImplemented, fmt.Sprintf("%q is not implemented in host %s", envelope.Type, version))
 	default:

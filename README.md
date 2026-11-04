@@ -2,7 +2,7 @@
 
 A Chrome extension that turns highlighted text into an AutoHotkey v2 hotstring, written into one of your `.ahk` files by a small native host on your PC. Local only: nothing leaves the machine. [BRIEF.md](BRIEF.md) has the full design.
 
-**Status: Phase 2 (polish).** Select text, press `Alt+Shift+H` (or right-click → *Add as AHK hotstring*), accept the suggested trigger or type one, press Enter: the hotstring is written to your chosen file, AutoHotkey reloads, and a toast offers Undo. Duplicates are caught across the whole folder. Phase 3 (an optional list of every hotstring with search, plus CSV import and export) is next.
+**Status: Phase 3 (manage), the last phase in the brief.** Select text, press `Alt+Shift+H` (or right-click → *Add as AHK hotstring*), accept the suggested trigger or type one, press Enter: the hotstring is written to your chosen file, AutoHotkey reloads, and a toast offers Undo. Duplicates are caught across the whole folder. Click the toolbar icon to open the list of every hotstring, where you can search, edit, move, delete and import or export CSV.
 
 ## Layout
 
@@ -91,6 +91,16 @@ Focus goes back where you were, and a toast in the bottom-right corner says "Sav
 
 To make an existing hotstring instant, add `*` between its first two colons (`:T:` becomes `:*T:`, `:X:` becomes `:*X:`), then save any hotstring or double-click `Main.ahk` to reload. If anything fails, the dialog stays open with the message and everything you typed. The shortcut can be changed from Settings.
 
+### The hotstring list
+
+Click the extension's toolbar icon (pin it from the puzzle-piece menu), or open Settings and choose the **Hotstrings** tab.
+
+- **Search** matches triggers, text and file names; the file menu shows one file. Hotstrings are listed file by file, in file order. A **duplicate** badge marks triggers that appear more than once, which can happen after hand edits; only one of each can work.
+- **Edit** opens the hotstring in place with the same fields as the dialog. Saving rewrites its line where it is (a source comment above it stays). Choosing another file moves it there and adds that file's `#Include` if needed. Hotstrings that run code, or use options the extension doesn't write (such as `R` or `SI`), offer Delete only.
+- **Delete** asks once, then removes the line and its source comment.
+- **Export CSV** saves `hotstrings-<date>.csv` with the columns `File, Trigger, Replacement, Options, Type`. It's UTF-8 with a BOM, so Excel shows accents, and it opens in any spreadsheet as a cheat sheet for the team. A cell that starts with `=`, `+`, `-` or `@` gets an apostrophe in front so a spreadsheet can't run it as a formula; import removes it again.
+- **Import CSV…** reads a file in that format (the columns can be in any order; only Trigger and Replacement are required) and shows a preview first. Each row is marked *Add*, *Skip* (the trigger already exists, appears earlier in the file, or the row runs code) or *Can't import* with the reason. Rows without a file go to the file you choose there. **Import** creates any new category files, adds the rows, and restarts AutoHotkey once. Existing hotstrings are never changed by an import.
+
 ### Recommended layout for a shared collection
 
 ```
@@ -105,6 +115,7 @@ Hotstrings\
 - **Adding categories:** choose *New file…* in the dialog. A file you create by hand works too: the first save to it adds its `#Include` line to `Main.ahk`.
 - **Dropping a category:** put a `;` in front of its `#Include` line.
 - **Teammates don't need the extension,** only AutoHotkey v2 and a copy of the folder (from a shared drive or a git repository). The extension is the curator's tool.
+- **Merging a teammate's additions:** they export a CSV, you import it. Their new triggers are added; any you already have are skipped.
 
 Each saved line ends with a short id comment, `:T:;brb::be right back ; hsc:k3j9x2`, which Undo uses to find exactly that entry if the file changed in the meantime. AutoHotkey ignores it.
 
@@ -127,7 +138,7 @@ npx @puppeteer/browsers install chrome@stable --path ~/.cache/chrome-for-testing
 | `npm test` | Extension tests (node:test) and host tests (`go test`) |
 | `npm run typecheck` | `tsc` over the extension and the tests |
 | `npm run check:network` | Fails on any network API, remote URL, loosened manifest or Go `net` dependency |
-| `npm run e2e` | Chrome for Testing with the Linux host. On `dist/`: the fixed ID, Test connection and its errors, and that the CSP blocks every network API. On `.e2e/dist/`, with a fake `AutoHotkey64.exe`: folder setup, then the dialog end to end. That covers placement, focus, suggestions, save, the toast and Undo, a validation failure, duplicates with Replace and Rename, Instant clashes, New file…, the source comment and preview, a missing folder, an empty selection, a contenteditable editor, a strict-CSP page, and no page access to the dialog |
+| `npm run e2e` | Chrome for Testing with the Linux host. On `dist/`: the fixed ID, Test connection and its errors, and that the CSP blocks every network API. On `.e2e/dist/`, with a fake `AutoHotkey64.exe`: folder setup, then the dialog end to end. That covers placement, focus, suggestions, save, the toast and Undo, a validation failure, duplicates with Replace and Rename, Instant clashes, New file…, the source comment and preview, a missing folder, an empty selection, a contenteditable editor, a strict-CSP page, and no page access to the dialog. Then the hotstring list: search, filter, duplicate badges, edit, move, delete, CSV export, import with its preview, an export-then-import round trip, and the toolbar icon |
 | `npm run verify` | All of the above; the gate for each phase |
 | `npm run release` | Builds and packages `release/ahk-hotstring-clipper-<version>.zip` |
 
@@ -155,7 +166,9 @@ The host does every disk and AutoHotkey operation in one transaction. It either 
 4. **Restart.** `AutoHotkey64.exe /ErrorStdOut=UTF-8 /restart Main.ahk` is started detached. It replaces the running copy once it has loaded, and it keeps running after Chrome closes. If it exits with an error within 750 ms, the files are restored.
 5. **`#Hotstring X`.** A file whose `#Hotstring` directives turn on `X` is refused, because they would make plain-text lines run as code.
 6. **Duplicates.** Under the lock, every `.ahk` file in the folder is read with an AutoHotkey-accurate line parser (`host/parse.go`: escapes, comments, `/* */` blocks, the `C` and `*` options) and a matching trigger is refused unless the request is a Replace. A Replace names the line and a hash of its contents, so a file edited since the dialog opened is refused rather than overwritten. The old entry, and a `; from` comment directly above it, are swapped in place.
-7. **Undo.** The save hands back the new file's SHA-256. If the file still matches it, Undo writes back the `.bak` from just before the save, which restores a replaced hotstring too. If the file changed since, Undo removes only the line carrying that save's `hsc:` id (and its comment). Either way it validates, restarts and rolls back like a save.
+7. **Edit, move and delete** from the list name the line and its hash in the same way, so a file changed by hand since the list loaded is refused rather than overwritten. A move takes the entry out of one file and appends it to another within one transaction.
+8. **Import** checks every row under one lock, skips triggers already in the folder or earlier in the import, appends the rest to their files, then validates and restarts once. Importing into several files needs the main-script layout (one script to restart).
+9. **Undo.** The save hands back the new file's SHA-256. If the file still matches it, Undo writes back the `.bak` from just before the save, which restores a replaced hotstring too. If the file changed since, Undo removes only the line carrying that save's `hsc:` id (and its comment). Either way it validates, restarts and rolls back like a save.
 
 Not handled, by design:
 - `:X:` hotstrings don't adjust case the way auto-replace does (typing `;BRB` with `C` off won't give `BE RIGHT BACK`).

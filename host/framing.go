@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	// Chrome accepts up to 64 MiB towards a host, but no request needs more
-	// than a hotstring and a file name.
-	maxInbound = 1 << 20
+	// Chrome accepts up to 64 MiB towards a host; the largest request, an
+	// import of a few thousand hotstrings, fits well within this.
+	maxInbound = 8 << 20
 	// Chrome rejects messages from a host larger than 1 MB.
 	maxOutbound = 1_000_000
 )

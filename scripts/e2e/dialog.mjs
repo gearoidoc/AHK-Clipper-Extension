@@ -14,25 +14,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { check, id, launch, makeProfile, root, serviceWorker, sleep, startServer, waitFor } from './lib.mjs';
-
-const FAKE_AHK = `#!/bin/sh
-# Stands in for AutoHotkey64.exe: logs its arguments, fails /Validate while a
-# fail-validate file sits next to it, and stays up briefly after /restart like
-# a running script.
-dir=$(dirname "$0")
-printf '%s\\n' "$*" >> "$dir/calls.log"
-case " $* " in
-  *" /Validate "*)
-    if [ -e "$dir/fail-validate" ]; then
-      echo "General.ahk (7) : ==> This line does not contain a recognized action." >&2
-      exit 2
-    fi ;;
-  *" /restart "*)
-    sleep 2 ;;
-esac
-exit 0
-`;
+import { check, FAKE_AHK, id, launch, makeProfile, root, serviceWorker, sleep, startServer, waitFor } from './lib.mjs';
 
 const PAGE = `<!doctype html><html><head><title>Test page</title></head><body>
 <p id="phrase">be right back</p>

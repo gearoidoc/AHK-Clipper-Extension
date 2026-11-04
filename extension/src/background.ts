@@ -5,12 +5,16 @@ import { isoDate, sourceComment, toHotstring, toOptions, type HotstringOptions }
 import { sendToHost } from './native.ts';
 import type {
   CreateFileReply,
+  DeleteReply,
   DialogInit,
   ErrorReply,
   ExtensionMessage,
   FrameMessage,
+  ImportReply,
+  ManagerScanReply,
   ReplaceTarget,
   SaveReply,
+  ScanReply,
   SetupFolderReply,
   UndoReply,
   UndoToken,
@@ -40,6 +44,16 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === MENU_ID && tab?.id !== undefined) void openDialog(tab.id, info.selectionText ?? '');
 });
 
+// The toolbar icon opens the hotstring list.
+chrome.action.onClicked.addListener(() => void openList());
+
+/** Opens Settings, or brings it forward, on the Hotstrings tab. */
+async function openList(): Promise<void> {
+  await chrome.runtime.openOptionsPage();
+  // A page that was already open switches tabs; a new one opens on the list anyway.
+  await chrome.runtime.sendMessage({ type: 'options.showHotstrings' }).catch(() => {});
+}
+
 chrome.tabs.onRemoved.addListener((tabId) => void chrome.storage.session.remove([captureKey(tabId), undoKey(tabId)]));
 
 chrome.runtime.onMessage.addListener((message: ExtensionMessage, sender, sendResponse) => {
@@ -60,6 +74,16 @@ function route(message: ExtensionMessage, tabId: number | undefined): Promise<un
       return sendToHost({ type: 'listFiles', folder: String(message.folder) });
     case 'settings.setupFolder':
       return setupFolder(String(message.folder));
+    case 'manager.scan':
+      return managerScan();
+    case 'manager.save':
+      return managerSave(String(message.trigger), String(message.text), String(message.file), toOptions(message.options), toReplaceTarget(message.replace));
+    case 'manager.delete':
+      return managerDelete(toReplaceTarget(message.target));
+    case 'manager.createFiles':
+      return createFiles(Array.isArray(message.names) ? message.names.map(String) : []);
+    case 'manager.import':
+      return managerImport(Array.isArray(message.entries) ? message.entries : []);
   }
   // The rest come from the dialog frame, which lives in a tab.
   if (tabId === undefined) return undefined;
@@ -123,7 +147,7 @@ async function initDialog(tabId: number): Promise<DialogInit> {
   const capture = await getCapture(tabId);
   const text = (capture?.text ?? '').trim();
   const settings = await getSettings();
-  const scan = await sendToHost({ type: 'scan', folder: settings.folder });
+  const scan = await scanAll(settings.folder);
   if (!scan.ok) return { ...scan, text };
   const main = settings.mainScript.toLowerCase();
   const files = settings.reloadMode === 'main' ? scan.files.filter((f) => f.toLowerCase() !== main) : scan.files;
@@ -170,6 +194,7 @@ async function save(tabId: number, input: SaveInput): Promise<SaveReply | ErrorR
     comment: input.withComment ? commentFor(await getCapture(tabId)) : '',
     reload: reloadScript(settings),
     replace: input.replace,
+    keepComment: false,
   });
   if (reply.ok) {
     await updateSettings({ lastFile: reply.file });
@@ -202,6 +227,80 @@ async function createCategory(name: string): Promise<CreateFileReply | ErrorRepl
     kind: 'category',
     includeIn: settings.reloadMode === 'main' ? settings.mainScript : '',
   });
+}
+
+/** Every scan page put together. */
+async function scanAll(folder: string): Promise<ScanReply | ErrorReply> {
+  let all: ScanReply | undefined;
+  let start = 0;
+  do {
+    const page = await sendToHost({ type: 'scan', folder, start });
+    if (!page.ok) return page;
+    if (all) all.hotstrings.push(...page.hotstrings);
+    else all = page;
+    start = page.next;
+  } while (start > 0);
+  return all;
+}
+
+async function managerScan(): Promise<ManagerScanReply | ErrorReply> {
+  const settings = await getSettings();
+  const scan = await scanAll(settings.folder);
+  if (!scan.ok) return scan;
+  return {
+    ok: true,
+    folder: scan.folder,
+    files: scan.files,
+    hotstrings: scan.hotstrings,
+    skipped: scan.skipped,
+    mainScript: settings.reloadMode === 'main' ? settings.mainScript : '',
+    lastFile: settings.lastFile,
+  };
+}
+
+/** Edit from the list: replace in place, or move to `file`, keeping the source comment. */
+async function managerSave(trigger: string, text: string, file: string, options: HotstringOptions, replace: ReplaceTarget | null): Promise<SaveReply | ErrorReply> {
+  if (!replace) return { ok: false, error: { code: 'invalid', message: 'Nothing to edit.' } };
+  const result = toHotstring(trigger, text, options);
+  if (!result.ok) return { ok: false, error: { code: 'invalid', message: result.errors.join(' ') } };
+  const settings = await getSettings();
+  return sendToHost({
+    type: 'save',
+    folder: settings.folder,
+    ahkPath: settings.ahkPath,
+    file,
+    line: result.line,
+    comment: '',
+    reload: reloadScript(settings),
+    replace,
+    keepComment: true,
+  });
+}
+
+async function managerDelete(target: ReplaceTarget | null): Promise<DeleteReply | ErrorReply> {
+  if (!target) return { ok: false, error: { code: 'invalid', message: 'Nothing to delete.' } };
+  const settings = await getSettings();
+  return sendToHost({ type: 'delete', folder: settings.folder, ahkPath: settings.ahkPath, reload: reloadScript(settings), ...target });
+}
+
+/** Creates the category files an import needs before it runs. */
+async function createFiles(names: string[]): Promise<{ ok: true; created: string[] } | ErrorReply> {
+  const created: string[] = [];
+  for (const name of names) {
+    const reply = await createCategory(name);
+    if (!reply.ok) return reply;
+    created.push(reply.file);
+  }
+  return { ok: true, created };
+}
+
+async function managerImport(entries: unknown[]): Promise<ImportReply | ErrorReply> {
+  const clean = entries.flatMap((e) => {
+    const { file, line } = (e ?? {}) as Record<string, unknown>;
+    return typeof file === 'string' && typeof line === 'string' ? [{ file, line }] : [];
+  });
+  const settings = await getSettings();
+  return sendToHost({ type: 'import', folder: settings.folder, ahkPath: settings.ahkPath, reload: reloadScript(settings), entries: clean });
 }
 
 async function closeDialog(tabId: number): Promise<{ ok: true }> {
@@ -239,5 +338,5 @@ async function sendToFrame(tabId: number, message: FrameMessage): Promise<void> 
 
 if (__E2E__) {
   // Tests can't press browser shortcuts, so the e2e build exposes the same entry point.
-  (globalThis as { __ahkClipperTest?: unknown }).__ahkClipperTest = { openDialog };
+  (globalThis as { __ahkClipperTest?: unknown }).__ahkClipperTest = { openDialog, openList };
 }

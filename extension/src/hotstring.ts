@@ -35,6 +35,40 @@ export const OPTION_INFO: readonly { key: keyof HotstringOptions; letter: string
   { key: 'omitEndChar', letter: 'O', label: 'No end key', help: "Don't type the Space or Enter that ended the trigger." },
 ];
 
+/**
+ * Reads AutoHotkey option letters, as written in a hotstring or a CSV
+ * Options column, into the five options. Returns null when there's an option
+ * the extension can't represent (R, SI, C1, ...). T and X are accepted and
+ * ignored: toHotstring picks the form itself.
+ */
+export function parseOptionLetters(letters: string): HotstringOptions | null {
+  const tokens = letters.match(/[*?CBOTX]0?/gi) ?? [];
+  if (tokens.join('') !== letters) return null;
+  const options = { ...NO_OPTIONS };
+  for (const token of tokens) {
+    const on = !token.endsWith('0');
+    switch (token[0]!.toUpperCase()) {
+      case '*':
+        options.immediate = on;
+        break;
+      case '?':
+        options.insideWord = on;
+        break;
+      case 'C':
+        options.caseSensitive = on;
+        break;
+      case 'B':
+        // B0 keeps the trigger; a plain B turns backspacing back on.
+        options.keepTrigger = !on;
+        break;
+      case 'O':
+        options.omitEndChar = on;
+        break;
+    }
+  }
+  return options;
+}
+
 /** Reads options from untrusted input (a message or stored settings): only `true` turns one on. */
 export function toOptions(value: unknown): HotstringOptions {
   const source = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
@@ -173,7 +207,8 @@ function needsExecuteMode(text: string): boolean {
   return /[\n\t]/.test(text) || /^ | $/.test(text);
 }
 
-function optionLetters(o: HotstringOptions): string {
+/** The option letters toHotstring writes, in order: `*?CB0O`. */
+export function optionLetters(o: HotstringOptions): string {
   return (o.immediate ? '*' : '') + (o.insideWord ? '?' : '') + (o.caseSensitive ? 'C' : '') +
     (o.keepTrigger ? 'B0' : '') + (o.omitEndChar ? 'O' : '');
 }

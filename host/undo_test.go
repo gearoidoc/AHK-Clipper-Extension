@@ -135,10 +135,6 @@ func TestReplaceSwapsTheEntryInPlace(t *testing.T) {
 	if r := s.request(t, s.saveMsg(map[string]any{"line": ":T:;brb::x", "replace": replace})); errorCode(r) != codeFileChanged {
 		t.Fatalf("stale replace: %v", r)
 	}
-	// A replacement goes to the file it replaces.
-	if r := s.request(t, s.saveMsg(map[string]any{"file": "Main.ahk", "line": ":T:;q::x", "replace": replace})); errorCode(r) != codeBadRequest {
-		t.Fatalf("replace into another file: %v", r)
-	}
 }
 
 func TestSourceCommentGoesAboveTheLine(t *testing.T) {

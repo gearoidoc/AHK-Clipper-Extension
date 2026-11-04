@@ -22,8 +22,12 @@ type saveRequest struct {
 	// The script to restart: a main script that #Includes File, or "" to
 	// restart File itself.
 	Reload string `json:"reload"`
-	// An existing hotstring to replace in place instead of appending.
+	// An existing hotstring to replace instead of appending. In the same file
+	// it's swapped in place; in another file it moves to the end of File.
 	Replace *replaceTarget `json:"replace"`
+	// On a replace, keep the source comment above the old entry (editing an
+	// entry keeps where it came from; replacing it with a new capture doesn't).
+	KeepComment bool `json:"keepComment"`
 }
 
 // replaceTarget names a hotstring as scan reported it. Hash guards against
@@ -68,9 +72,6 @@ func handleSave(raw []byte) (any, error) {
 		return nil, err
 	}
 	newHotstring, _ := parseHotstringLine(req.Line)
-	if req.Replace != nil && req.Replace.File != req.File {
-		return nil, fail(codeBadRequest, "a replacement must be saved to the file it replaces")
-	}
 	folder, err := resolveFolder(req.Folder)
 	if err != nil {
 		return nil, err
@@ -103,22 +104,49 @@ func handleSave(raw []byte) (any, error) {
 	}
 	id := newID()
 	entryLines := []string{req.Line + " ; hsc:" + id}
-	if req.Comment != "" {
-		entryLines = append([]string{req.Comment}, entryLines...)
+	withComment := func(comment string) []string {
+		if req.Comment != "" {
+			comment = req.Comment
+		}
+		if comment == "" {
+			return entryLines
+		}
+		return append([]string{comment}, entryLines...)
 	}
-	var text string
-	if req.Replace != nil {
-		if text, err = replaceEntry(tf.text, req.Replace, entryLines); err != nil {
+
+	var changes []change
+	switch {
+	case req.Replace == nil:
+		changes = []change{{target, tf, tf.encode(appendEntry(tf.text, withComment("")...))}}
+	case req.Replace.File == req.File:
+		cut, err := cutEntry(tf.text, req.Replace)
+		if err != nil {
 			return nil, err
 		}
-	} else {
-		text = appendEntry(tf.text, entryLines...)
+		changes = []change{{target, tf, tf.encode(cut.insert(withComment(cut.keptComment(req.KeepComment))))}}
+	default:
+		// A move: out of the old file, onto the end of the new one.
+		source, err := resolveFile(folder, req.Replace.File, true)
+		if err != nil {
+			return nil, err
+		}
+		sf, err := readText(source)
+		if err != nil {
+			return nil, err
+		}
+		cut, err := cutEntry(sf.text, req.Replace)
+		if err != nil {
+			return nil, err
+		}
+		changes = []change{
+			{target, tf, tf.encode(appendEntry(tf.text, withComment(cut.keptComment(req.KeepComment))...))},
+			{source, sf, sf.encode(cut.insert(nil))},
+		}
 	}
-	// After replaceEntry, so a stale replace reads as "changed", not "duplicate".
+	// After cutEntry, so a stale replace reads as "changed", not "duplicate".
 	if err := checkNoDuplicate(folder, newHotstring, req.Replace); err != nil {
 		return nil, err
 	}
-	changes := []change{{target, tf, tf.encode(text)}}
 
 	includeAdded := false
 	if !samePath(entry, target) {
@@ -189,28 +217,50 @@ func checkNoDuplicate(folder string, h parsedHotstring, replacing *replaceTarget
 	return nil
 }
 
-// replaceEntry swaps the hotstring at r.Line, and a source comment directly
-// above it, for the new entry lines.
-func replaceEntry(text string, r *replaceTarget, entryLines []string) (string, error) {
+// cutResult is a file's lines with one entry taken out.
+type cutResult struct {
+	lines   []string
+	at      int
+	comment string
+	eol     string
+}
+
+// cutEntry takes out the hotstring at r.Line and a source comment directly
+// above it, after checking the line is still the one scan reported.
+func cutEntry(text string, r *replaceTarget) (cutResult, error) {
 	lines := strings.Split(text, "\n")
 	i := r.Line - 1
 	if i < 0 || i >= len(lines) || lineHash(strings.TrimSuffix(lines[i], "\r")) != r.Hash {
-		return "", fail(codeFileChanged, "%s changed since the dialog opened. Close it and try again.", r.File)
+		return cutResult{}, fail(codeFileChanged, "%s changed since the hotstrings were listed. Refresh and try again.", r.File)
 	}
-	first := i
-	if i > 0 && strings.HasPrefix(strings.TrimSpace(lines[i-1]), commentPrefix) {
-		first = i - 1
-	}
-	eol := ""
+	cut := cutResult{at: i}
 	if strings.HasSuffix(lines[i], "\r") {
-		eol = "\r"
+		cut.eol = "\r"
 	}
-	replacement := make([]string, len(entryLines))
+	if i > 0 && strings.HasPrefix(strings.TrimSpace(lines[i-1]), commentPrefix) {
+		cut.at = i - 1
+		cut.comment = strings.TrimSpace(lines[i-1])
+	}
+	cut.lines = append(append([]string{}, lines[:cut.at]...), lines[i+1:]...)
+	return cut, nil
+}
+
+// keptComment is the old source comment if it should stay, else "".
+func (c cutResult) keptComment(keep bool) string {
+	if keep {
+		return c.comment
+	}
+	return ""
+}
+
+// insert puts entry lines where the old entry was and joins the file again.
+func (c cutResult) insert(entryLines []string) string {
+	added := make([]string, len(entryLines))
 	for j, l := range entryLines {
-		replacement[j] = l + eol
+		added[j] = l + c.eol
 	}
-	lines = append(lines[:first], append(replacement, lines[i+1:]...)...)
-	return strings.Join(lines, "\n"), nil
+	lines := append(append(append([]string{}, c.lines[:c.at]...), added...), c.lines[c.at:]...)
+	return strings.Join(lines, "\n")
 }
 
 func newID() string {

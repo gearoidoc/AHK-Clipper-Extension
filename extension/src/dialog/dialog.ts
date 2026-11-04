@@ -1,7 +1,9 @@
 // The capture dialog, running in an extension-origin iframe on the web page.
 // The selected text arrives from the service worker, never via postMessage.
+import { createOptionChips } from '../chips.ts';
 import { findConflicts } from '../conflicts.ts';
-import { OPTION_INFO, normalizeText, toHotstring, validateTrigger, type HotstringOptions } from '../hotstring.ts';
+import { normalizeText, toHotstring, validateTrigger, type HotstringOptions } from '../hotstring.ts';
+import { previewText } from '../preview.ts';
 import {
   SETTINGS_ERRORS,
   type CreateFileReply,
@@ -47,22 +49,7 @@ const toastText = byId<HTMLParagraphElement>('toast-text');
 const undoButton = byId<HTMLButtonElement>('undo');
 const optionsBox = byId<HTMLFieldSetElement>('options');
 
-// One chip per AutoHotkey option: a real checkbox, so Tab and Space work.
-const optionInputs = new Map<keyof HotstringOptions, HTMLInputElement>();
-for (const { key, letter, label, help } of OPTION_INFO) {
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.name = key;
-  input.addEventListener('change', update);
-  const code = document.createElement('code');
-  code.textContent = letter;
-  const chip = document.createElement('label');
-  chip.className = 'chip';
-  chip.title = help;
-  chip.append(input, code, ` ${label}`);
-  optionsBox.append(chip);
-  optionInputs.set(key, input);
-}
+const chips = createOptionChips(optionsBox, update);
 
 let ready = false;
 let busy = false;
@@ -154,7 +141,7 @@ async function init(): Promise<void> {
     pageUrl = reply.url;
     comment = reply.comment;
     renderFiles(reply.files, reply.file);
-    for (const [key, input] of optionInputs) input.checked = reply.options[key];
+    chips.set(reply.options);
     withComment.checked = reply.withComment && comment !== '';
     withComment.disabled = comment === '';
     if (reply.suggest && reply.text) {
@@ -181,18 +168,12 @@ function renderFiles(files: string[], selected: string): void {
   previousFile = selected;
 }
 
-function readOptions(): HotstringOptions {
-  const options = {} as HotstringOptions;
-  for (const [key, input] of optionInputs) options[key] = input.checked;
-  return options;
-}
-
 function update(): void {
   const normalized = normalizeText(text.value);
   const lines = normalized === '' ? 0 : normalized.split('\n').length;
   count.textContent = `${lines} ${lines === 1 ? 'line' : 'lines'}, ${normalized.length.toLocaleString('en')} ${normalized.length === 1 ? 'character' : 'characters'}`;
 
-  const options = readOptions();
+  const options = chips.read();
   const check = validateTrigger(trigger.value);
   const result = toHotstring(trigger.value, text.value, options);
   const triggerError = showTriggerErrors ? check.errors[0] : undefined;
@@ -212,7 +193,7 @@ function showConflicts(options: HotstringOptions): void {
   duplicate = found;
   let message = '';
   if (found) {
-    message = `${found.trigger} is already in ${found.file}: ${found.text}`;
+    message = `${found.trigger} is already in ${found.file}: ${found.kind === 'code' ? '(runs code)' : previewText(found.text)}`;
   } else if (shadows.length > 0) {
     const first = shadows[0]!;
     message = `Instant ${trigger.value} would fire before ${first.trigger} (${first.file})${shadows.length > 1 ? ` and ${shadows.length - 1} more` : ''} could be typed.`;
@@ -230,7 +211,7 @@ async function submit(replace: boolean): Promise<void> {
   if (!ready || busy) return;
   showTriggerErrors = showTextErrors = true;
   update();
-  const options = readOptions();
+  const options = chips.read();
   if (!toHotstring(trigger.value, text.value, options).ok) {
     (triggerHint.dataset.kind === 'error' ? trigger : text).focus();
     return;

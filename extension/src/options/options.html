@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AHK Hotstring Clipper settings</title>
+    <title>AHK Hotstring Clipper</title>
     <link rel="stylesheet" href="theme.css">
     <link rel="stylesheet" href="options.css">
     <script type="module" src="options.js"></script>
@@ -12,6 +12,49 @@
     <main>
       <h1>AHK Hotstring Clipper <span id="saved" class="saved" role="status" aria-live="polite"></span></h1>
 
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tab-hotstrings" aria-controls="panel-hotstrings" aria-selected="true">Hotstrings</button>
+        <button type="button" role="tab" id="tab-settings" aria-controls="panel-settings" aria-selected="false">Settings</button>
+      </div>
+
+      <div id="panel-hotstrings" role="tabpanel" aria-labelledby="tab-hotstrings">
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Search triggers, text and files" aria-label="Search hotstrings" autocomplete="off" spellcheck="false">
+          <select id="file-filter" aria-label="Show file">
+            <option value="">All files</option>
+          </select>
+          <button type="button" id="refresh">Refresh</button>
+          <button type="button" id="export">Export CSV</button>
+          <button type="button" id="import">Import CSV&hellip;</button>
+          <input id="import-file" type="file" accept=".csv,text/csv" hidden>
+        </div>
+        <p id="list-status" class="list-status" role="status" aria-live="polite"></p>
+
+        <section id="import-panel" class="import-panel" aria-labelledby="import-heading" hidden>
+          <h2 id="import-heading">Import <span id="import-name"></span></h2>
+          <p id="import-summary"></p>
+          <label class="inline">Rows without a file go to <select id="import-default"></select></label>
+          <div class="import-table-wrap">
+            <table class="import-table">
+              <thead><tr><th>Row</th><th>Trigger</th><th>File</th><th>Result</th></tr></thead>
+              <tbody id="import-rows"></tbody>
+            </table>
+          </div>
+          <div class="import-actions">
+            <button type="button" id="import-run" class="primary">Import</button>
+            <button type="button" id="import-cancel">Cancel</button>
+          </div>
+        </section>
+
+        <table id="hotstrings" class="hotstrings">
+          <thead>
+            <tr><th>Trigger</th><th>Replacement</th><th>Options</th><th>File</th><th><span class="visually-hidden">Actions</span></th></tr>
+          </thead>
+          <tbody id="hotstring-rows"></tbody>
+        </table>
+      </div>
+
+      <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
       <section aria-labelledby="folder-heading">
         <h2 id="folder-heading">Hotstring folder</h2>
         <p>The folder that holds your <code>.ahk</code> files. The extension only ever reads and writes inside it.</p>
@@ -77,6 +120,8 @@
         <p>Select text on a page and press <kbd id="shortcut">Alt+Shift+H</kbd>, or right-click it and choose <em>Add as AHK hotstring</em>.</p>
         <button id="change-shortcut" type="button">Change shortcut</button>
       </section>
+
+      </div>
 
       <p class="note">Local only: nothing leaves this PC. The extension has no network access, and the host contains no networking code.</p>
     </main>

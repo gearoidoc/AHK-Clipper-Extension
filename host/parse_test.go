@@ -27,10 +27,10 @@ func TestParseHotstringLine(t *testing.T) {
 		{":T:a `;b::y", "a ;b", false, false, "y", ""},
 		{":T:;dc::a::b", ";dc", false, false, "a::b", ""},
 		{":T:;sc::a `;b", ";sc", false, false, "a ;b", ""},
-		{":X:;sig::SendText(\"Best regards,`nJane\" A_EndChar)", ";sig", false, false, "Best regards, \u21b5 Jane", ""},
+		{":X:;sig::SendText(\"Best regards,`nJane\" A_EndChar)", ";sig", false, false, "Best regards,\nJane", ""},
 		{":X:;q::SendText(\"say `\"hi`\"\")", ";q", false, false, "say \"hi\"", ""},
-		{":X:;run::Run(\"notepad\")", ";run", false, false, "(runs code)", ""},
-		{"::;fn::", ";fn", false, false, "(runs code)", ""},
+		{":X:;run::Run(\"notepad\")", ";run", false, false, "Run(\"notepad\")", ""},
+		{"::;fn::", ";fn", false, false, "", ""},
 		{"  :T:;ind::indented", ";ind", false, false, "indented", ""},
 		{":T:;e::\u00e9t\u00e9", ";e", false, false, "\u00e9t\u00e9", ""},
 		{":T:`\u00e9x::y", "\u00e9x", false, false, "y", ""},
@@ -96,12 +96,28 @@ func TestSameTrigger(t *testing.T) {
 	}
 }
 
-func TestPreviewIsOneShortLine(t *testing.T) {
-	long := preview(strings.Repeat("\u00e9", 500))
-	if n := len([]rune(long)); n != maxPreview || !strings.HasSuffix(long, "\u2026") {
-		t.Fatalf("length %d: %q", n, long)
+func TestEditableAndCode(t *testing.T) {
+	cases := []struct {
+		line     string
+		options  string
+		code     bool
+		editable bool
+	}{
+		{":*T:;brb::be right back", "*T", false, true},
+		{":X:;sig::SendText(\"a`nb\" A_EndChar)", "X", false, true},
+		{":*?CB0OT:;x::y", "*?CB0OT", false, true},
+		{"::btw::by the way", "", false, true},
+		{"::sig::Regards{Enter}Jane", "", false, false}, // {Enter} is a key here, text in :T:
+		{":R:raw::{Enter}", "R", false, false},
+		{":C1:ab::x", "C1", false, false},
+		{":SI:ab::x", "SI", false, false},
+		{":X:;run::Run(\"notepad\")", "X", true, false},
+		{"::;fn::", "", true, false},
 	}
-	if got := preview("a\r\nb\tc"); got != "a \u21b5 b c" {
-		t.Fatalf("got %q", got)
+	for _, c := range cases {
+		h, ok := parseHotstringLine(c.line)
+		if !ok || h.Options != c.options || h.Code != c.code || h.Editable != c.editable {
+			t.Errorf("%q: options %q code %v editable %v (ok=%v), want %q %v %v", c.line, h.Options, h.Code, h.Editable, ok, c.options, c.code, c.editable)
+		}
 	}
 }
