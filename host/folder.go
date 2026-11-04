@@ -7,7 +7,11 @@ import (
 	"strings"
 )
 
-const maxListedFiles = 1000
+const (
+	maxListedFiles = 1000
+	// Keeps a scan reply well under Chrome's 1 MB limit.
+	maxScanEntries = 3000
+)
 
 type listFilesRequest struct {
 	Type   string `json:"type"`
@@ -31,6 +35,16 @@ func handleListFiles(raw []byte) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	files, err := ahkFiles(folder)
+	if err != nil {
+		return nil, err
+	}
+	return listFilesReply{OK: true, Folder: folder, Files: files}, nil
+}
+
+// ahkFiles lists the .ahk files directly inside folder, sorted
+// case-insensitively.
+func ahkFiles(folder string) ([]string, error) {
 	entries, err := os.ReadDir(folder)
 	if err != nil {
 		return nil, err
@@ -47,7 +61,69 @@ func handleListFiles(raw []byte) (any, error) {
 	if len(files) > maxListedFiles {
 		files = files[:maxListedFiles]
 	}
-	return listFilesReply{OK: true, Folder: folder, Files: files}, nil
+	return files, nil
+}
+
+type scanRequest struct {
+	Type   string `json:"type"`
+	Folder string `json:"folder"`
+}
+
+type scanEntry struct {
+	File          string `json:"file"`
+	Line          int    `json:"line"`
+	Trigger       string `json:"trigger"`
+	CaseSensitive bool   `json:"caseSensitive"`
+	Instant       bool   `json:"instant"`
+	Text          string `json:"text"`
+	ID            string `json:"id"`
+	Hash          string `json:"hash"`
+}
+
+type scanReply struct {
+	OK         bool        `json:"ok"`
+	Folder     string      `json:"folder"`
+	Files      []string    `json:"files"`
+	Hotstrings []scanEntry `json:"hotstrings"`
+	// Files that couldn't be read as UTF-8 and so weren't scanned.
+	Skipped   []string `json:"skipped"`
+	Truncated bool     `json:"truncated"`
+}
+
+// handleScan lists the folder's files and every hotstring in them, for the
+// dialog's duplicate check and trigger suggestion.
+func handleScan(raw []byte) (any, error) {
+	var req scanRequest
+	if err := decodeStrict(raw, &req); err != nil {
+		return nil, err
+	}
+	folder, err := resolveFolder(req.Folder)
+	if err != nil {
+		return nil, err
+	}
+	files, err := ahkFiles(folder)
+	if err != nil {
+		return nil, err
+	}
+	reply := scanReply{OK: true, Folder: folder, Files: files, Hotstrings: []scanEntry{}, Skipped: []string{}}
+	for _, name := range files {
+		f, err := readText(filepath.Join(folder, name))
+		if err != nil {
+			reply.Skipped = append(reply.Skipped, name)
+			continue
+		}
+		for _, h := range parseHotstrings(f.text) {
+			if len(reply.Hotstrings) == maxScanEntries {
+				reply.Truncated = true
+				return reply, nil
+			}
+			reply.Hotstrings = append(reply.Hotstrings, scanEntry{
+				File: name, Line: h.Line, Trigger: h.Trigger, CaseSensitive: h.CaseSensitive,
+				Instant: h.Instant, Text: h.Text, ID: h.ID, Hash: h.Hash,
+			})
+		}
+	}
+	return reply, nil
 }
 
 type createFileRequest struct {

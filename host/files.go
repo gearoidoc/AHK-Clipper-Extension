@@ -138,8 +138,8 @@ func lockFolder(folder string) (unlock func(), err error) {
 	}
 }
 
-// appendEntry adds line at the end of a script, under the marker, using CRLF.
-func appendEntry(text, line string) string {
+// appendEntry adds lines at the end of a script, under the marker, using CRLF.
+func appendEntry(text string, lines ...string) string {
 	var b strings.Builder
 	b.WriteString(text)
 	if text != "" && !strings.HasSuffix(text, "\n") {
@@ -151,7 +151,9 @@ func appendEntry(text, line string) string {
 		}
 		b.WriteString(marker + crlf)
 	}
-	b.WriteString(line + crlf)
+	for _, line := range lines {
+		b.WriteString(line + crlf)
+	}
 	return b.String()
 }
 

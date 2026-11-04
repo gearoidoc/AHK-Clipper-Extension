@@ -12,12 +12,27 @@ import (
 var (
 	hotstringLine = regexp.MustCompile("^:(\\*?)(\\??)(C?)((?:B0)?)(O?)([TX]):((?:`.|[^`:\\r\\n])+)::(.+)$")
 	textModeBody  = regexp.MustCompile("^(?:`.|[^`\\r\\n\\t])+$")
-	sendTextBody  = regexp.MustCompile("^SendText\\(\"(?:`.|[^`\"\\r\\n])*\"(?: A_EndChar)?\\)$")
+	// The literal is captured so scan can show what the hotstring types.
+	sendTextBody = regexp.MustCompile("^SendText\\(\"((?:`.|[^`\"\\r\\n])*)\"(?: A_EndChar)?\\)$")
 
 	hotstringDirective = regexp.MustCompile(`(?im)^[ \t]*#Hotstring[ \t]+([^\r\n]*)`)
 )
 
-const maxLineLength = 16_000
+const (
+	maxLineLength    = 16_000
+	maxCommentLength = 1_000
+)
+
+var sourceCommentLine = regexp.MustCompile(`^; from [^\r\n]+$`)
+
+// checkComment accepts "" or one "; from <title>, <url>, <date>" line, as
+// sourceComment() (extension/src/hotstring.ts) writes it.
+func checkComment(comment string) error {
+	if comment != "" && (len(comment) > maxCommentLength || !sourceCommentLine.MatchString(comment)) {
+		return fail(codeBadLine, "That isn't a source comment this extension writes.")
+	}
+	return nil
+}
 
 func checkHotstringLine(line string) error {
 	bad := fail(codeBadLine, "That isn't a hotstring line this extension writes.")

@@ -44,7 +44,11 @@ func handle(raw []byte) any {
 		handler = handleCreateFile
 	case "save":
 		handler = handleSave
-	case "scan", "undo", "reload":
+	case "scan":
+		handler = handleScan
+	case "undo":
+		handler = handleUndo
+	case "reload":
 		return errorResponse(codeNotImplemented, fmt.Sprintf("%q is not implemented in host %s", envelope.Type, version))
 	default:
 		return errorResponse(codeUnknownType, fmt.Sprintf("unknown message type %q", envelope.Type))
