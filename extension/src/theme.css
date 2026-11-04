@@ -33,6 +33,11 @@
   }
 }
 
+/* The hidden attribute must win over any display rule a component sets. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);

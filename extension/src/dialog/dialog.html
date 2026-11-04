@@ -10,39 +10,63 @@
   </head>
   <body>
     <main id="card">
-      <header>
-        <h1>Add AHK hotstring</h1>
-        <button type="button" id="close" class="icon" aria-label="Close" title="Close (Esc)">&times;</button>
-      </header>
+      <section id="editor">
+        <header>
+          <h1>Add AHK hotstring</h1>
+          <button type="button" id="close" class="icon" aria-label="Close" title="Close (Esc)">&times;</button>
+        </header>
 
-      <div id="banner" class="banner" role="alert" hidden>
-        <p id="banner-text"></p>
-        <button type="button" id="open-settings" hidden>Open Settings</button>
-      </div>
-
-      <form id="form" novalidate>
-        <label for="trigger">Trigger</label>
-        <input id="trigger" type="text" autocomplete="off" spellcheck="false" aria-describedby="trigger-hint">
-        <p id="trigger-hint" class="hint"></p>
-
-        <label for="text">Replacement <span id="count" class="count"></span></label>
-        <textarea id="text" rows="4" spellcheck="false" aria-describedby="text-hint"></textarea>
-        <p id="text-hint" class="hint"></p>
-
-        <label for="file">File</label>
-        <select id="file"></select>
-
-        <fieldset id="options" class="chips">
-          <legend>Options</legend>
-        </fieldset>
-
-        <div class="actions">
-          <span class="keys">Enter saves &middot; Esc closes</span>
-          <button type="submit" id="save" class="primary">Save</button>
+        <div id="banner" class="banner" role="alert" hidden>
+          <p id="banner-text"></p>
+          <button type="button" id="open-settings" hidden>Open Settings</button>
         </div>
-      </form>
 
-      <p id="done" class="done" role="status" hidden></p>
+        <form id="form" novalidate>
+          <label for="trigger">Trigger</label>
+          <input id="trigger" type="text" autocomplete="off" spellcheck="false" aria-describedby="trigger-hint conflict-text">
+          <p id="trigger-hint" class="hint"></p>
+          <div id="conflict" class="conflict" hidden>
+            <p id="conflict-text" role="status"></p>
+            <div class="conflict-actions">
+              <button type="button" id="replace">Replace</button>
+              <button type="button" id="rename">Rename</button>
+            </div>
+          </div>
+
+          <label for="text">Replacement <span id="count" class="count"></span></label>
+          <textarea id="text" rows="4" spellcheck="false" aria-describedby="text-hint"></textarea>
+          <p id="text-hint" class="hint"></p>
+
+          <label for="file">File</label>
+          <select id="file"></select>
+          <div id="new-file" class="new-file" hidden>
+            <input id="new-file-name" type="text" autocomplete="off" spellcheck="false" placeholder="Category name, e.g. Email" aria-label="New file name">
+            <button type="button" id="create-file">Create</button>
+          </div>
+          <p id="file-hint" class="hint"></p>
+
+          <fieldset id="options" class="chips">
+            <legend>Options</legend>
+          </fieldset>
+
+          <label class="check"><input type="checkbox" id="with-comment"> Source comment (page title, address and date)</label>
+
+          <pre id="preview" class="preview" aria-label="What will be written"></pre>
+
+          <div class="actions">
+            <span class="keys">Enter saves &middot; Esc closes</span>
+            <button type="submit" id="save" class="primary">Save</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="toast" class="toast" hidden>
+        <p id="toast-text" role="status"></p>
+        <div class="toast-actions">
+          <button type="button" id="undo">Undo</button>
+          <button type="button" id="toast-close" class="icon" aria-label="Close">&times;</button>
+        </div>
+      </section>
     </main>
   </body>
 </html>

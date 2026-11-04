@@ -15,6 +15,9 @@ const connectionResult = byId<HTMLElement>('connection-result');
 const saved = byId<HTMLElement>('saved');
 const reloadChoices = [...document.querySelectorAll<HTMLInputElement>('input[name="reload"]')];
 const defaultOptions = byId<HTMLElement>('default-options');
+const suggest = byId<HTMLInputElement>('suggest');
+const triggerPrefix = byId<HTMLInputElement>('trigger-prefix');
+const sourceComment = byId<HTMLInputElement>('source-comment');
 
 const send = <T>(message: ExtensionMessage): Promise<T> => chrome.runtime.sendMessage(message);
 let savedTimer: number | undefined;
@@ -28,6 +31,12 @@ async function init(): Promise<void> {
   ahkPath.value = settings.ahkPath;
   for (const choice of reloadChoices) choice.checked = choice.value === settings.reloadMode;
   renderDefaultOptions(settings.defaultOptions);
+  suggest.checked = settings.suggest;
+  triggerPrefix.value = settings.triggerPrefix;
+  sourceComment.checked = settings.sourceComment;
+  suggest.addEventListener('change', () => void save({ suggest: suggest.checked }));
+  triggerPrefix.addEventListener('change', () => void save({ triggerPrefix: triggerPrefix.value.trim() }));
+  sourceComment.addEventListener('change', () => void save({ sourceComment: sourceComment.checked }));
 
   folder.addEventListener('change', () => void save({ folder: folder.value.trim() }).then(checkFolder));
   mainScript.addEventListener('change', () => void save({ mainScript: mainScript.value.trim() || 'Main.ahk' }).then(checkFolder));

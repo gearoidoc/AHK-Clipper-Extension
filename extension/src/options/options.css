@@ -14,6 +14,15 @@ h2 {
   margin: 0 0 0.5rem;
 }
 
+h3 {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.25rem;
+}
+
+input[type="text"].short {
+  width: 8rem;
+}
+
 section {
   border: 1px solid var(--border);
   border-radius: 8px;
