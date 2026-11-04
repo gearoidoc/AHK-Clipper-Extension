@@ -8,9 +8,11 @@ import (
 	"unicode/utf8"
 )
 
-const maxPreview = 120
-
-var idComment = regexp.MustCompile(`;[ \t]*hsc:([a-z2-9]{6})[ \t]*$`)
+var (
+	idComment = regexp.MustCompile(`;[ \t]*hsc:([a-z2-9]{6})[ \t]*$`)
+	// Options the extension can show and write back: * ? C B0 O plus T or X.
+	editableOptions = regexp.MustCompile(`^(?:\*0?|\?0?|[Cc]0?|[Bb]0?|[Oo]0?|[Tt]|[Xx])*$`)
+)
 
 // parsedHotstring is one hotstring definition found in a script, read the way
 // AutoHotkey v2 reads it.
@@ -20,8 +22,14 @@ type parsedHotstring struct {
 	Trigger       string
 	CaseSensitive bool
 	Instant       bool
-	// A one-line preview of what it types, or "(runs code)".
+	// The options between the first two colons, as written.
+	Options string
+	// What it types, decoded; for a hotstring that runs code, the code as written.
 	Text string
+	Code bool
+	// Whether the extension can show it in its editor and write it back
+	// without changing what it does.
+	Editable bool
 	// The `; hsc:<id>` this extension added, or "".
 	ID string
 	// lineHash of the line as written, so a replace can check it hasn't changed.
@@ -101,19 +109,25 @@ func parseHotstringLine(line string) (parsedHotstring, bool) {
 		}
 	}
 
+	textMode := strings.ContainsAny(strings.ReplaceAll(strings.ReplaceAll(options, "T0", ""), "t0", ""), "Tt")
 	switch {
 	case body == "":
 		// The hotstring's code follows on the next lines.
-		h.Text = "(runs code)"
+		h.Code = true
 	case execute:
 		if m := sendTextBody.FindStringSubmatch(body); m != nil {
-			h.Text = preview(unescape(m[1]))
+			h.Text = unescape(m[1])
 		} else {
-			h.Text = "(runs code)"
+			h.Code, h.Text = true, body
 		}
 	default:
-		h.Text = preview(unescape(body))
+		h.Text = unescape(body)
 	}
+	h.Options = options
+	// Plain auto-replace (no T) sends {Enter}, ^c and the like as keys, which
+	// :T: would type literally, so only text without them can be rewritten.
+	h.Editable = !h.Code && editableOptions.MatchString(options) &&
+		(textMode || execute || !strings.ContainsAny(h.Text, "{}^!+#"))
 	h.Trigger = trigger.String()
 	if m := idComment.FindStringSubmatch(comment); m != nil {
 		h.ID = m[1]
@@ -167,17 +181,6 @@ func unescape(s string) string {
 		b.WriteByte(s[i])
 	}
 	return b.String()
-}
-
-// preview fits text on one line: line breaks become a return symbol.
-func preview(text string) string {
-	text = strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\n", " \u21b5 ")
-	text = strings.ReplaceAll(text, "\t", " ")
-	if utf8.RuneCountInString(text) > maxPreview {
-		runes := []rune(text)
-		text = string(runes[:maxPreview-1]) + "\u2026"
-	}
-	return text
 }
 
 func lineHash(line string) string {

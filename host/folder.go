@@ -9,8 +9,11 @@ import (
 
 const (
 	maxListedFiles = 1000
-	// Keeps a scan reply well under Chrome's 1 MB limit.
-	maxScanEntries = 3000
+	// A scan reply stops at about this many bytes and says where to go on,
+	// staying well under Chrome's 1 MB limit for replies.
+	scanPageBytes = 700_000
+	// Rough JSON overhead of one entry besides its text, trigger and file.
+	scanEntryOverhead = 200
 )
 
 type listFilesRequest struct {
@@ -67,6 +70,8 @@ func ahkFiles(folder string) ([]string, error) {
 type scanRequest struct {
 	Type   string `json:"type"`
 	Folder string `json:"folder"`
+	// Index of the first hotstring to return: 0, or a previous reply's next.
+	Start int `json:"start"`
 }
 
 type scanEntry struct {
@@ -75,9 +80,13 @@ type scanEntry struct {
 	Trigger       string `json:"trigger"`
 	CaseSensitive bool   `json:"caseSensitive"`
 	Instant       bool   `json:"instant"`
-	Text          string `json:"text"`
-	ID            string `json:"id"`
-	Hash          string `json:"hash"`
+	Options       string `json:"options"`
+	// "text", or "code" for a hotstring that runs code (Text is then the code).
+	Kind     string `json:"kind"`
+	Text     string `json:"text"`
+	Editable bool   `json:"editable"`
+	ID       string `json:"id"`
+	Hash     string `json:"hash"`
 }
 
 type scanReply struct {
@@ -86,12 +95,14 @@ type scanReply struct {
 	Files      []string    `json:"files"`
 	Hotstrings []scanEntry `json:"hotstrings"`
 	// Files that couldn't be read as UTF-8 and so weren't scanned.
-	Skipped   []string `json:"skipped"`
-	Truncated bool     `json:"truncated"`
+	Skipped []string `json:"skipped"`
+	// The start of the next page, or 0 when this reply holds the rest.
+	Next int `json:"next"`
 }
 
 // handleScan lists the folder's files and every hotstring in them, for the
-// dialog's duplicate check and trigger suggestion.
+// dialog's duplicate check and the hotstring list. Long collections come in
+// pages: each reply ends near scanPageBytes and gives the next start.
 func handleScan(raw []byte) (any, error) {
 	var req scanRequest
 	if err := decodeStrict(raw, &req); err != nil {
@@ -105,7 +116,11 @@ func handleScan(raw []byte) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if req.Start < 0 {
+		return nil, fail(codeBadRequest, "start can't be negative")
+	}
 	reply := scanReply{OK: true, Folder: folder, Files: files, Hotstrings: []scanEntry{}, Skipped: []string{}}
+	index, size := 0, 0
 	for _, name := range files {
 		f, err := readText(filepath.Join(folder, name))
 		if err != nil {
@@ -113,13 +128,22 @@ func handleScan(raw []byte) (any, error) {
 			continue
 		}
 		for _, h := range parseHotstrings(f.text) {
-			if len(reply.Hotstrings) == maxScanEntries {
-				reply.Truncated = true
+			if index++; index <= req.Start {
+				continue
+			}
+			entrySize := len(h.Text) + len(h.Trigger) + len(name) + scanEntryOverhead
+			if size > 0 && size+entrySize > scanPageBytes {
+				reply.Next = index - 1
 				return reply, nil
 			}
+			size += entrySize
+			kind := "text"
+			if h.Code {
+				kind = "code"
+			}
 			reply.Hotstrings = append(reply.Hotstrings, scanEntry{
-				File: name, Line: h.Line, Trigger: h.Trigger, CaseSensitive: h.CaseSensitive,
-				Instant: h.Instant, Text: h.Text, ID: h.ID, Hash: h.Hash,
+				File: name, Line: h.Line, Trigger: h.Trigger, CaseSensitive: h.CaseSensitive, Instant: h.Instant,
+				Options: h.Options, Kind: kind, Text: h.Text, Editable: h.Editable, ID: h.ID, Hash: h.Hash,
 			})
 		}
 	}
