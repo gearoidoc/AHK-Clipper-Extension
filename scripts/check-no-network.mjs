@@ -3,8 +3,10 @@
 //
 //   1. No network API in the extension source or the bundled dist/.
 //   2. No remote URL in dist/ (remote code, fonts, styles or images).
-//   3. The manifest keeps the local-only shape: CSP, permissions, no update_url.
-//   4. `go list -deps` for the host includes no networking package.
+//   3. The manifest keeps the local-only shape: CSP, permissions, no update_url,
+//      and only the dialog web-accessible, behind a per-session URL.
+//   4. The production build carries no e2e test hook.
+//   5. `go list -deps` for the host includes no networking package.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -27,6 +29,8 @@ const REMOTE_URL = /\b(?:https?|wss?|ftp):\/\//i;
 
 const ALLOWED_PERMISSIONS = new Set(['contextMenus', 'nativeMessaging', 'storage', 'activeTab', 'scripting']);
 const REQUIRED_CSP = "default-src 'self'; script-src 'self'; object-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'";
+const ALLOWED_WEB_ACCESSIBLE = JSON.stringify([{ resources: ['dialog.html'], matches: ['<all_urls>'], use_dynamic_url: true }]);
+const TEST_HOOK = '__ahkClipperTest';
 const FORBIDDEN_GO_PACKAGE = /^(net|net\/.+|crypto\/tls|vendor\/golang\.org\/x\/net\/.+)$/;
 
 const problems = [];
@@ -53,7 +57,7 @@ scan('extension/src', ['.ts', '.js', '.html', '.css'], NETWORK_APIS);
 if (!existsSync(join(root, 'dist/manifest.json'))) {
   problems.push('dist/ is missing; run `npm run build` first so the bundled output is checked too.');
 } else {
-  scan('dist', ['.js', '.html', '.css', '.json'], [...NETWORK_APIS, REMOTE_URL]);
+  scan('dist', ['.js', '.html', '.css', '.json'], [...NETWORK_APIS, REMOTE_URL, new RegExp(TEST_HOOK)]);
 }
 
 const manifest = JSON.parse(readFileSync(join(root, 'extension/manifest.json'), 'utf8'));
@@ -62,6 +66,9 @@ if (manifest.content_security_policy?.extension_pages !== REQUIRED_CSP) {
 }
 for (const permission of manifest.permissions ?? []) {
   if (!ALLOWED_PERMISSIONS.has(permission)) problems.push(`manifest: permission "${permission}" is not in the brief's list`);
+}
+if (JSON.stringify(manifest.web_accessible_resources ?? []) !== ALLOWED_WEB_ACCESSIBLE) {
+  problems.push(`manifest: web_accessible_resources must be exactly ${ALLOWED_WEB_ACCESSIBLE}`);
 }
 for (const key of ['host_permissions', 'optional_host_permissions', 'optional_permissions', 'update_url', 'externally_connectable']) {
   if (key in manifest) problems.push(`manifest: "${key}" is not allowed`);
