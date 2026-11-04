@@ -25,7 +25,7 @@ You need Chrome and AutoHotkey v2. No admin rights are needed.
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\install.ps1
    ```
-   This copies the host to `%LOCALAPPDATA%\AHK Hotstring Clipper\`, writes its manifest there and registers it under `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.gearoid.ahk_clipper`. Add `-BlockNetwork` in an administrator PowerShell to also block the host's outbound traffic in Windows Firewall.
+   Run it from an open PowerShell window, not with right-click → Run with PowerShell, which closes before you can read any error. It should finish by printing "Installed the native host for extension …". It copies the host to `%LOCALAPPDATA%\AHK Hotstring Clipper\`, writes its manifest there and registers it under `HKCU\Software\Google\Chrome\NativeMessagingHosts\com.gearoid.ahk_clipper`. Add `-BlockNetwork` in an administrator PowerShell to also block the host's outbound traffic in Windows Firewall.
 3. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the `extension` folder. The ID shown must equal `extension-id.txt` (`alniempejkicbflhamllogohohmamfnl`).
 4. Open the extension's **Options** page and click **Test connection**. It should show the host version, "Echo matched" and the path to `AutoHotkey64.exe`.
 
