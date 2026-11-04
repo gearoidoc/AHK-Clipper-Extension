@@ -71,7 +71,9 @@ func handleUndo(raw []byte) (any, error) {
 	var data []byte
 	exact := false
 	if fileHash(tf.original) == req.Sha256 {
-		if bak, err := os.ReadFile(target + ".bak"); err == nil {
+		// The .bak is the state before the save unless it already holds the
+		// entry, which would mean some later write refreshed it.
+		if bak, err := os.ReadFile(target + ".bak"); err == nil && !strings.Contains(string(bak), "hsc:"+req.ID) {
 			data, exact = bak, true
 		}
 	}
@@ -82,7 +84,7 @@ func handleUndo(raw []byte) (any, error) {
 		}
 		data = tf.encode(text)
 	}
-	if err := commit(exe, entry, []change{{target, tf, data}}); err != nil {
+	if err := commit(exe, []string{entry}, []change{{target, tf, data}}); err != nil {
 		return nil, err
 	}
 	return undoReply{OK: true, File: filepath.Base(target), Exact: exact}, nil

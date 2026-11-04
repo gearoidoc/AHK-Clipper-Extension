@@ -276,6 +276,12 @@ table.hotstrings {
   margin-left: 0.3rem;
 }
 
+.hand-edit {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
 .badge {
   display: inline-block;
   margin-left: 0.35rem;

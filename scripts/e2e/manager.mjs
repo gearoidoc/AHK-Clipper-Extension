@@ -17,6 +17,10 @@ const GENERAL = [
   '::btw::by the way',
   ':X:;run::Run("notepad")',
   ':X:;sig::SendText("Best regards,`nJane" A_EndChar) ; hsc:cccccc',
+  '::mail::',
+  '{',
+  '    Run "mailto:x@example.com"',
+  '}',
   '',
 ].join('\r\n');
 
@@ -79,14 +83,16 @@ export async function managerSuite() {
     check('the list opens on its own once a folder is set up', Boolean(await waitFor(() => page.$eval('#tab-hotstrings', (el) => el.getAttribute('aria-selected') === 'true'))));
     await waitStatus(/hotstrings? in/);
     // Files in name order, hotstrings in file order.
-    check('every hotstring in every file is listed', (await listed()).join(' ') === ';TY ;brb ;ty btw ;run ;sig', (await listed()).join(' '));
-    check('the count and the duplicate note', /6 hotstrings in 2 files\.\n2 share a trigger/.test(await status()), await status());
+    check('every hotstring in every file is listed', (await listed()).join(' ') === ';TY ;brb ;ty btw ;run ;sig mail', (await listed()).join(' '));
+    check('the count and the duplicate note', /7 hotstrings in 2 files\.\n2 share a trigger/.test(await status()), await status());
     const badges = await page.$$eval('.badge', (els) => els.map((el) => el.closest('tr').querySelector('code').textContent).join(' '));
     check('both copies of a duplicate trigger are badged', badges === ';TY ;ty', badges);
     const sigText = await page.evaluate(() => [...document.querySelectorAll('#hotstring-rows tr')].find((tr) => tr.textContent.includes(';sig')).querySelector('td.text').textContent);
     check('multi-line text shows on one line', sigText === 'Best regards, \u21b5 Jane', sigText);
     const runButtons = await (await rowFor(';run')).$$eval('button', (bs) => bs.map((b) => b.textContent).join(','));
     check('a hotstring that runs code offers Delete only', runButtons === 'Delete', runButtons);
+    const mailActions = await (await rowFor('mail')).$eval('td.actions', (td) => `${td.querySelectorAll('button').length} ${td.textContent}`);
+    check('code on the lines below a hotstring can only be edited by hand', mailActions === '0 edit by hand', mailActions);
 
     await page.type('#search', 'regards');
     check('search finds text', (await listed()).join(' ') === ';sig');
@@ -164,8 +170,15 @@ export async function managerSuite() {
     check('the import preview summarises the rows', summary === "2 to add; 1 skipped because the trigger already exists or the row runs code; 1 can't be imported; new file: Support.ahk.", summary);
     const results = await page.$$eval('#import-rows tr', (trs) => trs.map((tr) => tr.lastElementChild.textContent));
     check('each row says what will happen', results[0] === 'Add' && results[1] === 'Skip: Already in General.ahk.' && results[2] === 'Add' && /^Can't import: Options "R"/.test(results[3]), results.join(' | '));
+    // A first attempt that AutoHotkey rejects, then a retry once it's fixed.
+    writeFileSync(join(ahkDir, 'fail-validate'), '');
+    await page.click('#import-run');
+    const failed = await waitFor(() => page.$eval('#import-summary', (el) => (/can't load/.test(el.textContent) ? el.textContent : '')), 5000);
+    check('a failed import says why and adds nothing', Boolean(failed) && !read('General.ahk').includes(';new1'), failed);
+    rmSync(join(ahkDir, 'fail-validate'));
     await page.click('#import-run');
     await waitStatus(/Imported 2 hotstrings\./);
+    check('the import can be retried after a failure', true);
     check('import adds the new rows and creates the new file', /:\*T:;new1::first new one ; hsc:/.test(read('General.ahk')) && /:T:;sup::support reply ; hsc:/.test(read('Support.ahk')) && read('Main.ahk').includes('#Include "Support.ahk"'));
     check('import skips existing triggers', (read('General.ahk').match(/;brb::/g) ?? []).length === 1);
     check('an import restarts AutoHotkey once', calls().slice(importStart).filter((c) => c.includes('/restart')).length === 1, calls().slice(importStart).join(' | '));

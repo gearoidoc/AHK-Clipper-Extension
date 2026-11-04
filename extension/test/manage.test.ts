@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { guardCell, parseCsv, toCsv, unguardCell } from '../src/csv.ts';
 import { NO_OPTIONS, optionLetters, parseOptionLetters } from '../src/hotstring.ts';
-import { exportRows, planImport } from '../src/importer.ts';
+import { exportRows, fileNameProblem, planImport } from '../src/importer.ts';
 import { previewText } from '../src/preview.ts';
 import type { ScannedHotstring } from '../src/protocol.ts';
 
 const existing = (trigger: string, more: Partial<ScannedHotstring> = {}): ScannedHotstring => ({
   file: 'General.ahk', line: 1, trigger, caseSensitive: false, instant: false, options: 'T', kind: 'text',
-  text: 'x', editable: true, id: '', hash: '0', ...more,
+  text: 'x', editable: true, multiline: false, id: '', hash: '0', ...more,
 });
 
 describe('CSV', () => {
@@ -107,5 +107,28 @@ describe('planImport', () => {
       ['General.ahk', '=x', '=SUM(1)', 'C', 'new'],
       ['General.ahk', ';run', 'Run("notepad")', '', 'code'],
     ]);
+  });
+});
+
+describe('file names in an import', () => {
+  test('the same rules as the host (host/paths_test.go)', () => {
+    for (const good of ['General.ahk', 'Email replies.ahk', 'a.b.ahk', 'Upper.AHK', '\u00e9t\u00e9.ahk']) assert.equal(fileNameProblem(good), '', good);
+    for (const bad of ['.ahk', 'General', 'a/b.ahk', 'a\\b.ahk', 'C:General.ahk', 'a*b.ahk', '.hidden.ahk', ' lead.ahk', 'trail .ahk', 'dot..ahk',
+      'CON.ahk', 'nul.ahk', 'com1.ahk', 'LPT9.x.ahk', `${'a'.repeat(100)}.ahk`, `${'\u00e9'.repeat(50)}.ahk`]) {
+      assert.notEqual(fileNameProblem(bad), '', bad);
+    }
+  });
+
+  test('names that differ only in case are one file, and match an existing file', () => {
+    const plan = planImport(toCsv([
+      ['Trigger', 'Replacement', 'File'],
+      [';a', 'one', 'Work'],
+      [';b', 'two', 'work'],
+      [';c', 'three', 'general'],
+      [';d', 'four', 'con'],
+      [';e', 'five', 'Notes.'],
+    ]), { defaultFile: 'General.ahk', files: ['General.ahk'], hotstrings: [] });
+    assert.deepEqual(plan.rows.map((r) => `${r.file} ${r.status}`), ['Work.ahk new', 'Work.ahk new', 'General.ahk new', 'con.ahk invalid', 'Notes..ahk invalid']);
+    assert.deepEqual(plan.newFiles, ['Work.ahk']);
   });
 });

@@ -122,7 +122,16 @@ function row(h: ScannedHotstring): HTMLTableRowElement {
   fileCell.textContent = h.file;
   const actions = cell('actions');
   if (h.editable) actions.append(button('Edit', () => edit(h)));
-  actions.append(button('Delete', () => confirmDelete(h)));
+  if (h.multiline) {
+    // Its code is on the lines below; deleting only this line would leave that code running.
+    const note = document.createElement('span');
+    note.className = 'hand-edit';
+    note.textContent = 'edit by hand';
+    note.title = `Its code continues on the lines below it in ${h.file}.`;
+    actions.append(note);
+  } else {
+    actions.append(button('Delete', () => confirmDelete(h)));
+  }
   tr.append(trigger, text, optionsCell, fileCell, actions);
   return tr;
 }

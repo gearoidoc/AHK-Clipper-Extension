@@ -27,6 +27,9 @@ type parsedHotstring struct {
 	// What it types, decoded; for a hotstring that runs code, the code as written.
 	Text string
 	Code bool
+	// Its code is on the lines below the hotstring line, which a one-line
+	// edit or delete would leave behind.
+	Multiline bool
 	// Whether the extension can show it in its editor and write it back
 	// without changing what it does.
 	Editable bool
@@ -113,7 +116,7 @@ func parseHotstringLine(line string) (parsedHotstring, bool) {
 	switch {
 	case body == "":
 		// The hotstring's code follows on the next lines.
-		h.Code = true
+		h.Code, h.Multiline = true, true
 	case execute:
 		if m := sendTextBody.FindStringSubmatch(body); m != nil {
 			h.Text = unescape(m[1])
