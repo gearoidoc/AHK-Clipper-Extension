@@ -1,6 +1,7 @@
 // Phase 1 checks, run against the e2e build in .e2e/dist with the Linux host
 // and a fake AutoHotkey64.exe that logs its arguments:
-//   - Settings sets up the folder (Main.ahk + General.ahk)
+//   - Settings sets up the folder (Main.ahk + General.ahk) and holds the
+//     default options; the dialog's option chips start from them
 //   - select text, open the dialog, type a trigger, Enter: the line is written,
 //     AutoHotkey validates and restarts Main.ahk, and focus returns
 //   - a failed validation leaves the file untouched and keeps what was typed
@@ -78,6 +79,8 @@ export async function dialogSuite() {
     await options.waitForFunction(() => /Created/.test(document.querySelector('#folder-result')?.textContent ?? ''), { timeout: 5000 });
     check('Set up this folder creates Main.ahk and General.ahk', read('Main.ahk').includes('#Include "General.ahk"') && read('General.ahk').includes('; --- Added by Hotstring Clipper ---'),
       await options.$eval('#folder-result', (el) => el.textContent));
+    const defaults = await options.$$eval('#default-options input', (els) => els.filter((i) => i.checked).map((i) => i.name).join());
+    check('Instant (*) is the only default option', defaults === 'immediate', defaults);
 
     // The page under test, with a listener for any postMessage traffic.
     const page = await browser.newPage();
@@ -102,6 +105,12 @@ export async function dialogSuite() {
       await target.waitForSelector('iframe[title="Add AHK hotstring"]', { timeout: 5000 });
       const frame = await target.waitForFrame((f) => f.url().endsWith('/dialog.html'), { timeout: 5000 });
       await frame.waitForFunction(() => document.querySelector('#file').options.length > 0 || !document.querySelector('#banner').hidden, { timeout: 5000 });
+      // Wait until the iframe has grown to fit the dialog, so clicks land where they aim.
+      await waitFor(async () => {
+        const card = await frame.$eval('#card', (el) => el.getBoundingClientRect().height);
+        const box = await target.$eval('iframe[title="Add AHK hotstring"]', (el) => el.getBoundingClientRect().height);
+        return Math.abs(card - box) < 2;
+      }, 3000);
       return frame;
     }
     const dialogGone = (target = page) => waitFor(() => target.$('iframe[title="Add AHK hotstring"]').then((el) => el === null), 4000);
@@ -118,6 +127,11 @@ export async function dialogSuite() {
     check('General.ahk is offered, not Main.ahk', (await frame.$$eval('#file option', (els) => els.map((o) => o.value)).then((v) => v.join())) === 'General.ahk');
     const focused = await waitFor(() => frame.evaluate(() => document.hasFocus() && document.activeElement?.id === 'trigger'), 2000);
     check('the trigger field has focus', focused);
+    const chips = () => frame.$$eval('#options input', (els) => els.filter((i) => i.checked).map((i) => i.name).join());
+    check('the option chips start from the Settings defaults', (await chips()) === 'immediate', await chips());
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
+    const tabbed = await frame.evaluate(() => document.activeElement?.getAttribute('name') ?? document.activeElement?.id);
+    check('Tab goes trigger, replacement, file, then the options', tabbed === 'immediate', tabbed);
     check('the page can\'t read inside the dialog', await page.evaluate(() => document.querySelector('iframe').contentDocument === null));
     const src = await page.$eval('iframe', (el) => el.src);
     check('the dialog URL is per-session, not the extension ID', src.startsWith('chrome-extension://') && !src.includes(id), src);
@@ -125,7 +139,7 @@ export async function dialogSuite() {
     await frame.type('#trigger', ';brb');
     await page.keyboard.press('Enter');
     const general = await waitFor(() => /;brb::/.test(read('General.ahk')) && read('General.ahk'));
-    check('Enter writes the line to General.ahk', /\r\n:T:;brb::be right back ; hsc:[a-z2-9]{6}\r\n$/.test(general || ''), JSON.stringify((general || '').slice(-60)));
+    check('Enter writes the line to General.ahk, expanding instantly (*)', /\r\n:\*T:;brb::be right back ; hsc:[a-z2-9]{6}\r\n$/.test(general || ''), JSON.stringify((general || '').slice(-60)));
     const log = calls();
     check('AutoHotkey validates, then restarts Main.ahk', log.length === 2 && /^\/ErrorStdOut=UTF-8 \/Validate .*\/Main\.ahk$/.test(log[0]) && /^\/ErrorStdOut=UTF-8 \/restart .*\/Main\.ahk$/.test(log[1]), log.join(' | '));
     const done = await waitFor(() => frame.$eval('#done', (el) => (el.hidden ? '' : el.textContent)).catch(() => ''), 2000);
@@ -164,15 +178,30 @@ export async function dialogSuite() {
     await selectPhrase();
     frame = await openDialog();
     await frame.select('#file', 'Email.ahk');
+    await frame.click('label.chip:has(input[name="immediate"])');
+    check('clicking the Instant chip unticks it', (await chips()) === '', await chips());
     await frame.type('#trigger', ';ty');
     await page.keyboard.press('Enter');
     await waitFor(() => read('Email.ahk').includes(';ty::'));
-    check('saving to a new category adds its #Include to Main.ahk', read('Main.ahk').includes('#Include "Email.ahk"') && read('Email.ahk').includes(':T:;ty::be right back ; hsc:'));
+    check('saving to a new category adds its #Include to Main.ahk', read('Main.ahk').includes('#Include "Email.ahk"'));
+    check('unticking Instant for one hotstring writes a plain :T: line', read('Email.ahk').includes('\r\n:T:;ty::be right back ; hsc:'), JSON.stringify(read('Email.ahk').slice(-50)));
     const doneEmail = await waitFor(() => frame.$eval('#done', (el) => (el.hidden ? '' : el.textContent)).catch(() => ''), 2000);
     check('the confirmation mentions the new #Include', /Main\.ahk now includes Email\.ahk/.test(doneEmail || ''), doneEmail);
     await dialogGone();
 
-    // 4. A folder that no longer exists.
+    // 4. New defaults in Settings reach the dialog.
+    await options.bringToFront();
+    await options.click('#default-options input[name="immediate"]');
+    await options.click('#default-options input[name="caseSensitive"]');
+    await waitFor(() => sw.evaluate(async () => (await chrome.storage.local.get('settings')).settings?.defaultOptions?.caseSensitive === true));
+    await page.bringToFront();
+    await selectPhrase();
+    frame = await openDialog();
+    check('changed defaults in Settings are pre-ticked in the dialog', (await chips()) === 'caseSensitive', await chips());
+    await page.keyboard.press('Escape');
+    await dialogGone();
+
+    // 5. A folder that no longer exists.
     await sw.evaluate(async (missing) => {
       const { settings } = await chrome.storage.local.get('settings');
       await chrome.storage.local.set({ settings: { ...settings, folder: missing } });
@@ -189,7 +218,7 @@ export async function dialogSuite() {
       await chrome.storage.local.set({ settings: { ...settings, folder: f } });
     }, folder);
 
-    // 5. A page with a strict Content Security Policy.
+    // 6. A page with a strict Content Security Policy.
     const strict = await browser.newPage();
     await strict.goto(`${base}/strict`);
     const strictTab = await sw.evaluate(async (url) => (await chrome.tabs.query({})).find((t) => t.url === url)?.id, `${base}/strict`);

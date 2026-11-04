@@ -6,8 +6,10 @@ import {
   NO_OPTIONS,
   isoDate,
   normalizeText,
+  OPTION_INFO,
   sourceComment,
   toHotstring,
+  toOptions,
   validateTrigger,
   type HotstringOptions,
 } from '../src/hotstring.ts';
@@ -68,6 +70,22 @@ describe('validateTrigger', () => {
     const result = toHotstring('a b', 'x');
     assert.ok(result.ok);
     assert.equal(result.warnings.length, 1);
+  });
+});
+
+describe('toOptions', () => {
+  test('keeps exactly the five options, and only true turns one on', () =>
+    assert.deepEqual(toOptions({ immediate: true, insideWord: 'yes', caseSensitive: 1, keepTrigger: false, extra: true }), { ...NO_OPTIONS, immediate: true }));
+  test('anything that is not an object means no options', () => {
+    for (const value of [undefined, null, 'immediate', 42]) assert.deepEqual(toOptions(value), NO_OPTIONS);
+  });
+  test('OPTION_INFO covers every option once, in AutoHotkey order', () =>
+    assert.deepEqual(OPTION_INFO.map((o) => o.letter).join(''), '*?CB0O'));
+  test('each option letter lands in the generated line', () => {
+    for (const { key, letter } of OPTION_INFO) {
+      const result = toHotstring(';x', 'y', { ...NO_OPTIONS, [key]: true });
+      assert.ok(result.ok && result.line.startsWith(`:${letter}T:`), `${key}: ${result.ok && result.line}`);
+    }
   });
 });
 

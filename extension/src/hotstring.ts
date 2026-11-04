@@ -26,6 +26,27 @@ export const NO_OPTIONS: Readonly<HotstringOptions> = Object.freeze({
   omitEndChar: false,
 });
 
+/** How the dialog and Settings present each option, in AutoHotkey's order. */
+export const OPTION_INFO: readonly { key: keyof HotstringOptions; letter: string; label: string; help: string }[] = [
+  { key: 'immediate', letter: '*', label: 'Instant', help: 'Expand as soon as the trigger is typed, without Space or Enter after it.' },
+  { key: 'insideWord', letter: '?', label: 'Inside words', help: 'Also expand when the trigger is typed in the middle of a word.' },
+  { key: 'caseSensitive', letter: 'C', label: 'Match case', help: 'Only expand when the trigger is typed with exactly this capitalisation.' },
+  { key: 'keepTrigger', letter: 'B0', label: 'Keep trigger', help: 'Leave the typed trigger in place instead of erasing it.' },
+  { key: 'omitEndChar', letter: 'O', label: 'No end key', help: "Don't type the Space or Enter that ended the trigger." },
+];
+
+/** Reads options from untrusted input (a message or stored settings): only `true` turns one on. */
+export function toOptions(value: unknown): HotstringOptions {
+  const source = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  return {
+    immediate: source.immediate === true,
+    insideWord: source.insideWord === true,
+    caseSensitive: source.caseSensitive === true,
+    keepTrigger: source.keepTrigger === true,
+    omitEndChar: source.omitEndChar === true,
+  };
+}
+
 /** AutoHotkey's MAX_HOTSTRING_LENGTH, counted in UTF-16 code units like JS `length`. */
 export const MAX_TRIGGER_LENGTH = 40;
 

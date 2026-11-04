@@ -1,5 +1,6 @@
 // Settings live in chrome.storage.local, never the sync storage area, which
 // would upload them to the Google account.
+import { NO_OPTIONS, toOptions, type HotstringOptions } from './hotstring.ts';
 
 export interface Settings {
   /** Full path of the folder holding the .ahk files. */
@@ -10,6 +11,8 @@ export interface Settings {
   reloadMode: 'main' | 'written';
   mainScript: string;
   lastFile: string;
+  /** Pre-ticked in the dialog for each new hotstring. */
+  defaultOptions: HotstringOptions;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
@@ -18,13 +21,19 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   reloadMode: 'main',
   mainScript: 'Main.ahk',
   lastFile: '',
+  // Expanding as soon as the trigger is typed suits ;-prefixed triggers.
+  defaultOptions: Object.freeze({ ...NO_OPTIONS, immediate: true }),
 });
 
 const KEY = 'settings';
 
 export async function getSettings(): Promise<Settings> {
   const stored = (await chrome.storage.local.get(KEY))[KEY] as Partial<Settings> | undefined;
-  return { ...DEFAULT_SETTINGS, ...stored };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    defaultOptions: stored?.defaultOptions ? toOptions(stored.defaultOptions) : { ...DEFAULT_SETTINGS.defaultOptions },
+  };
 }
 
 export async function updateSettings(patch: Partial<Settings>): Promise<Settings> {

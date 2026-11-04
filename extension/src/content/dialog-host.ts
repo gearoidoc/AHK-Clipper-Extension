@@ -6,7 +6,8 @@ import { placeDialog } from '../position.ts';
 import type { FrameMessage, Rect } from '../protocol.ts';
 
 const WIDTH = 360;
-const INITIAL_HEIGHT = 330;
+// About the dialog's usual height, so it barely moves when it reports its real one.
+const INITIAL_HEIGHT = 440;
 const SAVED_CLOSE_DELAY = 2500;
 
 interface PageFocus {

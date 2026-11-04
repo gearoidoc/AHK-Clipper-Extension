@@ -2,7 +2,7 @@
 
 A Chrome extension that turns highlighted text into an AutoHotkey v2 hotstring, written into one of your `.ahk` files by a small native host on your PC. Local only: nothing leaves the machine. [BRIEF.md](BRIEF.md) has the full design.
 
-**Status: Phase 1 (MVP).** Select text, press `Alt+Shift+H` (or right-click → *Add as AHK hotstring*), type a trigger, press Enter: the hotstring is written to your chosen file and AutoHotkey reloads. Trigger suggestions, duplicate detection, Undo, option chips and the live preview arrive in Phase 2.
+**Status: Phase 1 (MVP), plus Phase 2's option chips.** Select text, press `Alt+Shift+H` (or right-click → *Add as AHK hotstring*), type a trigger, press Enter: the hotstring is written to your chosen file and AutoHotkey reloads. Trigger suggestions, duplicate detection, Undo and the live preview arrive in Phase 2.
 
 ## Layout
 
@@ -66,10 +66,22 @@ On a managed PC, ask IT to approve these together:
 **Adding a hotstring.**
 1. Select text on any page.
 2. Press `Alt+Shift+H`, or right-click → **Add as AHK hotstring**.
-3. Type a trigger such as `;brb`. Change the file if you like.
+3. Type a trigger such as `;brb`. Change the file or the options if you like.
 4. Press **Enter** (Ctrl+Enter inside the replacement box). **Esc** closes the dialog without saving.
 
-The dialog says "Saved `;brb` to General.ahk, reloaded" and focus goes back where you were. If anything fails, the dialog stays open with the message and everything you typed. The shortcut can be changed from Settings.
+The dialog says "Saved `;brb` to General.ahk, reloaded" and focus goes back where you were.
+
+**Options.** Each hotstring has five option chips, pre-ticked from *Default options* in Settings:
+
+| Chip | AutoHotkey | Effect |
+| --- | --- | --- |
+| Instant | `*` | Expands as soon as the trigger is typed. Without it, AutoHotkey waits for an ending key (Space, Enter, Tab or punctuation). **On by default.** |
+| Inside words | `?` | Also expands in the middle of a word |
+| Match case | `C` | Only expands when the trigger's capitalisation matches |
+| Keep trigger | `B0` | Leaves the typed trigger in place |
+| No end key | `O` | Drops the Space or Enter that ended the trigger |
+
+With Instant on, a trigger that is the start of another (`;br` and `;brb`) always fires first, so the longer one can never be typed. To make an existing hotstring instant, add `*` between its first two colons (`:T:` becomes `:*T:`, `:X:` becomes `:*X:`), then save any hotstring or double-click `Main.ahk` to reload. If anything fails, the dialog stays open with the message and everything you typed. The shortcut can be changed from Settings.
 
 ### Recommended layout for a shared collection
 

@@ -1,3 +1,4 @@
+import { OPTION_INFO, toOptions, type HotstringOptions } from '../hotstring.ts';
 import type { ErrorReply, ExtensionMessage, ListFilesReply, PingReply, SetupFolderReply } from '../protocol.ts';
 import { getSettings, updateSettings, type Settings } from '../settings.ts';
 
@@ -13,6 +14,7 @@ const testButton = byId<HTMLButtonElement>('test-connection');
 const connectionResult = byId<HTMLElement>('connection-result');
 const saved = byId<HTMLElement>('saved');
 const reloadChoices = [...document.querySelectorAll<HTMLInputElement>('input[name="reload"]')];
+const defaultOptions = byId<HTMLElement>('default-options');
 
 const send = <T>(message: ExtensionMessage): Promise<T> => chrome.runtime.sendMessage(message);
 let savedTimer: number | undefined;
@@ -25,6 +27,7 @@ async function init(): Promise<void> {
   mainScript.value = settings.mainScript;
   ahkPath.value = settings.ahkPath;
   for (const choice of reloadChoices) choice.checked = choice.value === settings.reloadMode;
+  renderDefaultOptions(settings.defaultOptions);
 
   folder.addEventListener('change', () => void save({ folder: folder.value.trim() }).then(checkFolder));
   mainScript.addEventListener('change', () => void save({ mainScript: mainScript.value.trim() || 'Main.ahk' }).then(checkFolder));
@@ -41,6 +44,25 @@ async function init(): Promise<void> {
   byId('shortcut').textContent = command?.shortcut || 'not set';
 
   if (settings.folder) await checkFolder();
+}
+
+function renderDefaultOptions(options: HotstringOptions): void {
+  for (const { key, letter, label, help } of OPTION_INFO) {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = key;
+    input.checked = options[key];
+    input.addEventListener('change', () => {
+      const checked = Object.fromEntries([...defaultOptions.querySelectorAll('input')].map((i) => [i.name, i.checked]));
+      void save({ defaultOptions: toOptions(checked) });
+    });
+    const code = document.createElement('code');
+    code.textContent = letter;
+    const choice = document.createElement('label');
+    choice.className = 'choice';
+    choice.append(input, ' ', code, ` ${label}: ${help}`);
+    defaultOptions.append(choice);
+  }
 }
 
 async function save(patch: Partial<Settings>): Promise<void> {
