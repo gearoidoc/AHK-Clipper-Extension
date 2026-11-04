@@ -93,6 +93,121 @@ textarea {
   color: var(--warn);
 }
 
+.conflict {
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--warn);
+  font-size: 12px;
+}
+
+.conflict[data-kind="duplicate"] {
+  border-color: var(--error);
+}
+
+.conflict p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.conflict-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.conflict-actions button {
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
+.conflict[data-kind="warning"] .conflict-actions {
+  display: none;
+}
+
+.conflict.flash {
+  animation: flash 0.6s;
+}
+
+@keyframes flash {
+  50% {
+    background: var(--error-bg);
+  }
+}
+
+.new-file {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.new-file input {
+  margin-top: 0;
+}
+
+.new-file button {
+  flex: none;
+}
+
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: normal;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+label.check input {
+  width: auto;
+  margin: 0;
+}
+
+.preview {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  max-height: 6.5em;
+  overflow: auto;
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.preview:empty {
+  display: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toast p {
+  flex: 1;
+  margin: 0;
+  color: var(--ok);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.toast[data-state="error"] p {
+  color: var(--error);
+}
+
+.toast p code {
+  color: var(--fg);
+}
+
+.toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -183,12 +298,3 @@ textarea {
   margin-top: 6px;
 }
 
-.done {
-  margin: 4px 0 0;
-  color: var(--ok);
-  font-weight: 600;
-}
-
-.done code {
-  color: var(--fg);
-}

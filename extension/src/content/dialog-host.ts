@@ -5,10 +5,16 @@
 import { placeDialog } from '../position.ts';
 import type { FrameMessage, Rect } from '../protocol.ts';
 
+declare const __E2E__: boolean;
+
 const WIDTH = 360;
 // About the dialog's usual height, so it barely moves when it reports its real one.
 const INITIAL_HEIGHT = 440;
-const SAVED_CLOSE_DELAY = 2500;
+// How long the toast with Undo stays up (the e2e test doesn't wait 10 s).
+const TOAST_MS = __E2E__ ? 3000 : 10_000;
+// How long the toast stays after Undo has run.
+const DONE_MS = 2000;
+const CORNER_MARGIN = 16;
 
 interface PageFocus {
   element: Element | null;
@@ -30,7 +36,9 @@ if (!window.ahkClipperDialogHost) {
   let anchor: Rect | null = null;
   let height = INITIAL_HEIGHT;
   let pageFocus: PageFocus | null = null;
+  let toast = false;
   let closeTimer: number | undefined;
+  let closeAt = 0;
 
   chrome.runtime.onMessage.addListener((message: FrameMessage, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id || sender.tab) return false;
@@ -39,15 +47,20 @@ if (!window.ahkClipperDialogHost) {
         open(message.rect);
         break;
       case 'frame.resize':
-        height = Math.max(80, Math.min(Math.ceil(message.height), window.innerHeight - 24));
+        height = Math.max(40, Math.min(Math.ceil(message.height), window.innerHeight - 24));
         place();
         break;
       case 'frame.close':
         close();
         break;
-      case 'frame.saved':
+      case 'frame.toast':
         restoreFocus();
-        closeTimer = window.setTimeout(close, SAVED_CLOSE_DELAY);
+        toast = true;
+        place();
+        closeIn(TOAST_MS);
+        break;
+      case 'frame.toastDone':
+        closeIn(DONE_MS);
         break;
     }
     sendResponse(true);
@@ -61,6 +74,7 @@ if (!window.ahkClipperDialogHost) {
     pageFocus = earlierFocus ?? rememberFocus();
     anchor = rect;
     height = INITIAL_HEIGHT;
+    toast = false;
     frame = document.createElement('iframe');
     frame.src = chrome.runtime.getURL('dialog.html');
     frame.title = 'Add AHK hotstring';
@@ -82,13 +96,25 @@ if (!window.ahkClipperDialogHost) {
     place();
     const opened = frame;
     opened.addEventListener('load', () => opened.focus(), { once: true });
+    // The toast waits while the pointer is over it, so Undo can't vanish under it.
+    opened.addEventListener('mouseenter', () => {
+      if (closeTimer !== undefined) {
+        window.clearTimeout(closeTimer);
+        closeTimer = undefined;
+      }
+    });
+    opened.addEventListener('mouseleave', () => {
+      if (toast && closeAt) closeIn(Math.max(closeAt - Date.now(), 1500));
+    });
     document.documentElement.append(opened);
     window.addEventListener('resize', place);
   }
 
   function place(): void {
     if (!frame) return;
-    const { top, left } = placeDialog(anchor, { width: window.innerWidth, height: window.innerHeight }, { width: WIDTH, height });
+    const { top, left } = toast
+      ? { top: window.innerHeight - height - CORNER_MARGIN, left: window.innerWidth - WIDTH - CORNER_MARGIN }
+      : placeDialog(anchor, { width: window.innerWidth, height: window.innerHeight }, { width: WIDTH, height });
     frame.style.setProperty('top', `${top}px`, 'important');
     frame.style.setProperty('left', `${left}px`, 'important');
     frame.style.setProperty('height', `${height}px`, 'important');
@@ -102,8 +128,16 @@ if (!window.ahkClipperDialogHost) {
     pageFocus = null;
   }
 
+  function closeIn(ms: number): void {
+    window.clearTimeout(closeTimer);
+    closeAt = Date.now() + ms;
+    closeTimer = window.setTimeout(close, ms);
+  }
+
   function removeFrame(): void {
     window.clearTimeout(closeTimer);
+    closeTimer = undefined;
+    closeAt = 0;
     window.removeEventListener('resize', place);
     frame?.remove();
     frame = null;
@@ -123,8 +157,8 @@ if (!window.ahkClipperDialogHost) {
   function restoreFocus(): void {
     frame?.blur();
     if (!pageFocus) return;
+    // Kept until close(): after Undo is clicked, focus comes back once more.
     const { element, range, input } = pageFocus;
-    pageFocus = null;
     if (element instanceof HTMLElement && element.isConnected && element !== document.body) {
       element.focus({ preventScroll: true });
     }

@@ -41,10 +41,21 @@
       </section>
 
       <section aria-labelledby="options-heading">
-        <h2 id="options-heading">Default options</h2>
+        <h2 id="options-heading">New hotstrings</h2>
+        <h3>Default options</h3>
         <p>Pre-ticked in the dialog for each new hotstring. You can still change them for any one hotstring.</p>
         <div id="default-options"></div>
-        <p class="hint">With <em>Instant</em> on, a trigger that is the start of another one (<code>;br</code> and <code>;brb</code>) fires first, so the longer one can never be typed.</p>
+        <p class="hint">With <em>Instant</em> on, a trigger that is the start of another one (<code>;br</code> and <code>;brb</code>) fires first, so the longer one can never be typed. The dialog warns when that would happen.</p>
+
+        <h3>Triggers</h3>
+        <label class="choice"><input type="checkbox" id="suggest"> Suggest a trigger from the selected text (<code>be right back</code> &rarr; <code>;brb</code>)</label>
+        <label for="trigger-prefix">Prefix for suggested triggers</label>
+        <input id="trigger-prefix" class="short" type="text" spellcheck="false" autocomplete="off" maxlength="10">
+        <p class="hint">A prefix such as <code>;</code> keeps hotstrings from firing in ordinary words. Leave it empty for none.</p>
+
+        <h3>Source comment</h3>
+        <label class="choice"><input type="checkbox" id="source-comment"> Tick <em>Source comment</em> by default, adding <code>; from &lt;page title&gt;, &lt;address&gt;, &lt;date&gt;</code> above each new hotstring</label>
+        <p class="hint">Off keeps files at one line per hotstring and keeps page addresses out of files you share.</p>
       </section>
 
       <section aria-labelledby="ahk-heading">

@@ -2,7 +2,7 @@
 
 A Chrome extension that turns highlighted text into an AutoHotkey v2 hotstring, written into one of your `.ahk` files by a small native host on your PC. Local only: nothing leaves the machine. [BRIEF.md](BRIEF.md) has the full design.
 
-**Status: Phase 1 (MVP), plus Phase 2's option chips.** Select text, press `Alt+Shift+H` (or right-click → *Add as AHK hotstring*), type a trigger, press Enter: the hotstring is written to your chosen file and AutoHotkey reloads. Trigger suggestions, duplicate detection, Undo and the live preview arrive in Phase 2.
+**Status: Phase 2 (polish).** Select text, press `Alt+Shift+H` (or right-click → *Add as AHK hotstring*), accept the suggested trigger or type one, press Enter: the hotstring is written to your chosen file, AutoHotkey reloads, and a toast offers Undo. Duplicates are caught across the whole folder. Phase 3 (an optional list of every hotstring with search, plus CSV import and export) is next.
 
 ## Layout
 
@@ -66,10 +66,18 @@ On a managed PC, ask IT to approve these together:
 **Adding a hotstring.**
 1. Select text on any page.
 2. Press `Alt+Shift+H`, or right-click → **Add as AHK hotstring**.
-3. Type a trigger such as `;brb`. Change the file or the options if you like.
+3. The trigger field already holds a suggestion made from the text (`be right back` → `;brb`), selected so typing replaces it. Change the file or the options if you like.
 4. Press **Enter** (Ctrl+Enter inside the replacement box). **Esc** closes the dialog without saving.
 
-The dialog says "Saved `;brb` to General.ahk, reloaded" and focus goes back where you were.
+Focus goes back where you were, and a toast in the bottom-right corner says "Saved `;brb` to General.ahk, reloaded" for 10 seconds (longer while the pointer is over it). **Undo** there puts the file back exactly as it was and reloads AutoHotkey.
+
+**In the dialog:**
+- **Duplicates.** If the trigger already exists in any `.ahk` file in the folder, the dialog shows where and what it types, and Enter won't save. **Replace** swaps that hotstring for the new one in place; **Rename** selects the trigger to change it. Triggers match ignoring case unless either has *Match case*. The host repeats the check when saving, so two tabs can't race a duplicate in.
+- **Instant clashes.** With *Instant* on, a trigger that is the start of another one (`;br` and `;brb`) fires first, so the dialog warns about it either way round.
+- **New file…** at the bottom of the file list asks for a name (`Support` becomes `Support.ahk`), creates it with a `#Requires AutoHotkey v2.0` header and adds its `#Include` to `Main.ahk`.
+- **Source comment** adds `; from <page title>, <address>, <date>` above the hotstring. It's off by default (see Settings).
+- **The preview** at the bottom shows exactly what will be written; the entry id is filled in when it's saved.
+- **No selected text** (for instance on Google Docs, which hides the selection from extensions) puts the caret in the replacement box with a hint. On Docs: press Ctrl+C first, then `Alt+Shift+H`, then Ctrl+V in the dialog.
 
 **Options.** Each hotstring has five option chips, pre-ticked from *Default options* in Settings:
 
@@ -81,7 +89,7 @@ The dialog says "Saved `;brb` to General.ahk, reloaded" and focus goes back wher
 | Keep trigger | `B0` | Leaves the typed trigger in place |
 | No end key | `O` | Drops the Space or Enter that ended the trigger |
 
-With Instant on, a trigger that is the start of another (`;br` and `;brb`) always fires first, so the longer one can never be typed. To make an existing hotstring instant, add `*` between its first two colons (`:T:` becomes `:*T:`, `:X:` becomes `:*X:`), then save any hotstring or double-click `Main.ahk` to reload. If anything fails, the dialog stays open with the message and everything you typed. The shortcut can be changed from Settings.
+To make an existing hotstring instant, add `*` between its first two colons (`:T:` becomes `:*T:`, `:X:` becomes `:*X:`), then save any hotstring or double-click `Main.ahk` to reload. If anything fails, the dialog stays open with the message and everything you typed. The shortcut can be changed from Settings.
 
 ### Recommended layout for a shared collection
 
@@ -94,11 +102,13 @@ Hotstrings\
 ```
 
 - **One file per category,** so a teammate can find things by name rather than scrolling through hundreds of lines. Each hotstring is a single line.
-- **Adding categories:** create a new `.ahk` file in the folder (Phase 2 adds *New file…* to the dialog) and pick it in the dialog. The first save adds its `#Include` line to `Main.ahk`.
+- **Adding categories:** choose *New file…* in the dialog. A file you create by hand works too: the first save to it adds its `#Include` line to `Main.ahk`.
 - **Dropping a category:** put a `;` in front of its `#Include` line.
 - **Teammates don't need the extension,** only AutoHotkey v2 and a copy of the folder (from a shared drive or a git repository). The extension is the curator's tool.
 
-Each saved line ends with a short id comment, `:T:;brb::be right back ; hsc:k3j9x2`, which Phase 2's Undo uses to find exactly that entry. AutoHotkey ignores it.
+Each saved line ends with a short id comment, `:T:;brb::be right back ; hsc:k3j9x2`, which Undo uses to find exactly that entry if the file changed in the meantime. AutoHotkey ignores it.
+
+**Settings → New hotstrings** also has the trigger prefix for suggestions (`;` by default; empty is allowed), a switch for suggestions, and whether *Source comment* starts ticked. It's off by default, which keeps files at one line per hotstring and keeps page addresses out of files you share.
 
 ## Develop
 
@@ -117,7 +127,7 @@ npx @puppeteer/browsers install chrome@stable --path ~/.cache/chrome-for-testing
 | `npm test` | Extension tests (node:test) and host tests (`go test`) |
 | `npm run typecheck` | `tsc` over the extension and the tests |
 | `npm run check:network` | Fails on any network API, remote URL, loosened manifest or Go `net` dependency |
-| `npm run e2e` | Chrome for Testing with the Linux host. On `dist/`: the fixed ID, Test connection and its errors, and that the CSP blocks every network API. On `.e2e/dist/`, with a fake `AutoHotkey64.exe`: folder setup, then the dialog end to end (placement, focus, save, validation failure, new categories, missing folder, a strict-CSP page, no page access to the dialog) |
+| `npm run e2e` | Chrome for Testing with the Linux host. On `dist/`: the fixed ID, Test connection and its errors, and that the CSP blocks every network API. On `.e2e/dist/`, with a fake `AutoHotkey64.exe`: folder setup, then the dialog end to end. That covers placement, focus, suggestions, save, the toast and Undo, a validation failure, duplicates with Replace and Rename, Instant clashes, New file…, the source comment and preview, a missing folder, an empty selection, a contenteditable editor, a strict-CSP page, and no page access to the dialog |
 | `npm run verify` | All of the above; the gate for each phase |
 | `npm run release` | Builds and packages `release/ahk-hotstring-clipper-<version>.zip` |
 
@@ -144,6 +154,8 @@ The host does every disk and AutoHotkey operation in one transaction. It either 
 3. **Validation.** `AutoHotkey64.exe /ErrorStdOut=UTF-8 /Validate Main.ahk` loads the whole script without running it. It exits before AutoHotkey's single-instance check, so the running script isn't disturbed. If it fails, the original files are restored and AutoHotkey's message is shown.
 4. **Restart.** `AutoHotkey64.exe /ErrorStdOut=UTF-8 /restart Main.ahk` is started detached. It replaces the running copy once it has loaded, and it keeps running after Chrome closes. If it exits with an error within 750 ms, the files are restored.
 5. **`#Hotstring X`.** A file whose `#Hotstring` directives turn on `X` is refused, because they would make plain-text lines run as code.
+6. **Duplicates.** Under the lock, every `.ahk` file in the folder is read with an AutoHotkey-accurate line parser (`host/parse.go`: escapes, comments, `/* */` blocks, the `C` and `*` options) and a matching trigger is refused unless the request is a Replace. A Replace names the line and a hash of its contents, so a file edited since the dialog opened is refused rather than overwritten. The old entry, and a `; from` comment directly above it, are swapped in place.
+7. **Undo.** The save hands back the new file's SHA-256. If the file still matches it, Undo writes back the `.bak` from just before the save, which restores a replaced hotstring too. If the file changed since, Undo removes only the line carrying that save's `hsc:` id (and its comment). Either way it validates, restarts and rolls back like a save.
 
 Not handled, by design:
 - `:X:` hotstrings don't adjust case the way auto-replace does (typing `;BRB` with `C` off won't give `BE RIGHT BACK`).
@@ -168,6 +180,8 @@ Outside the extension's control: if your AHK folder is inside OneDrive, Dropbox 
 
 - Content scripts can't run on `chrome://` pages, the Chrome Web Store or the built-in PDF viewer, so the shortcut does nothing there.
 - Only the top frame is captured. Text selected inside an iframe still works through the context menu, which passes the selection along.
+- Duplicate checks skip files that aren't UTF-8 (the scan reports them), and ignore `#Hotstring` directives that change defaults for lines below them.
+- Hand-written hotstrings that run code show as "(runs code)" in the duplicate notice.
 - **Reloading finds the running script by its window title,** which includes the AutoHotkey version. Start `Main.ahk` with the same AutoHotkey the extension uses, or you get a second copy and hotstrings fire twice.
 - The host exe is unsigned. Windows 11 Smart App Control, if it's on, may refuse to run it. That shows up as "The native host stopped before it replied".
 - Only Google Chrome is registered (not Edge, Brave or Chromium).

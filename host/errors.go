@@ -22,6 +22,8 @@ const (
 	codeLocked          = "locked"
 	codeBadLine         = "bad_line"
 	codeHotstringX      = "hotstring_x"
+	codeDuplicate       = "duplicate"
+	codeFileChanged     = "file_changed"
 	codeIOError         = "io_error"
 )
 

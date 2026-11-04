@@ -165,8 +165,9 @@ func TestHandleValidatesRequests(t *testing.T) {
 		{"trailing data", `{"type":"ping"} {}`, codeBadRequest},
 		{"listFiles needs a folder", `{"type":"listFiles"}`, codeFolderMissing},
 		{"save needs a hotstring line", `{"type":"save"}`, codeBadLine},
-		{"scan not yet", `{"type":"scan"}`, codeNotImplemented},
-		{"undo not yet", `{"type":"undo"}`, codeNotImplemented},
+		{"scan needs a folder", `{"type":"scan"}`, codeFolderMissing},
+		{"undo needs a token", `{"type":"undo"}`, codeBadRequest},
+		{"reload not yet", `{"type":"reload"}`, codeNotImplemented},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

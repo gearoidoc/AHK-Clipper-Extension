@@ -13,6 +13,12 @@ export interface Settings {
   lastFile: string;
   /** Pre-ticked in the dialog for each new hotstring. */
   defaultOptions: HotstringOptions;
+  /** Put in front of suggested triggers; '' is allowed. */
+  triggerPrefix: string;
+  /** Prefill the trigger with a suggestion made from the text. */
+  suggest: boolean;
+  /** Tick "Source comment" in the dialog by default. */
+  sourceComment: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
@@ -23,6 +29,10 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   lastFile: '',
   // Expanding as soon as the trigger is typed suits ;-prefixed triggers.
   defaultOptions: Object.freeze({ ...NO_OPTIONS, immediate: true }),
+  triggerPrefix: ';',
+  suggest: true,
+  // Off: shared files stay one line per hotstring and carry no page URLs.
+  sourceComment: false,
 });
 
 const KEY = 'settings';
