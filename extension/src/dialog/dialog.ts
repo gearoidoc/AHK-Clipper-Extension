@@ -1,6 +1,6 @@
 // The capture dialog, running in an extension-origin iframe on the web page.
 // The selected text arrives from the service worker, never via postMessage.
-import { normalizeText, toHotstring, validateTrigger } from '../hotstring.ts';
+import { OPTION_INFO, normalizeText, toHotstring, validateTrigger, type HotstringOptions } from '../hotstring.ts';
 import { SETTINGS_ERRORS, type DialogInit, type ErrorReply, type ExtensionMessage, type HostErrorCode, type SaveReply } from '../protocol.ts';
 
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -17,6 +17,23 @@ const triggerHint = byId<HTMLParagraphElement>('trigger-hint');
 const textHint = byId<HTMLParagraphElement>('text-hint');
 const count = byId<HTMLSpanElement>('count');
 const done = byId<HTMLParagraphElement>('done');
+const optionsBox = byId<HTMLFieldSetElement>('options');
+
+// One chip per AutoHotkey option: a real checkbox, so Tab and Space work.
+const optionInputs = new Map<keyof HotstringOptions, HTMLInputElement>();
+for (const { key, letter, label, help } of OPTION_INFO) {
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.name = key;
+  const code = document.createElement('code');
+  code.textContent = letter;
+  const chip = document.createElement('label');
+  chip.className = 'chip';
+  chip.title = help;
+  chip.append(input, code, ` ${label}`);
+  optionsBox.append(chip);
+  optionInputs.set(key, input);
+}
 
 let ready = false;
 let busy = false;
@@ -65,6 +82,7 @@ async function init(): Promise<void> {
   text.value = reply.text;
   if (reply.ok) {
     file.replaceChildren(...reply.files.map((name) => new Option(name, name, name === reply.file, name === reply.file)));
+    for (const [key, input] of optionInputs) input.checked = reply.options[key];
     ready = true;
   } else {
     showError(reply.error.code, reply.error.message);
@@ -99,7 +117,7 @@ async function submit(): Promise<void> {
   update();
   hideBanner();
   save.textContent = 'Saving…';
-  const reply = await send<SaveReply | ErrorReply>({ type: 'dialog.save', trigger: trigger.value, text: text.value, file: file.value });
+  const reply = await send<SaveReply | ErrorReply>({ type: 'dialog.save', trigger: trigger.value, text: text.value, file: file.value, options: readOptions() });
   busy = false;
   save.textContent = 'Save';
   if (reply.ok) {
@@ -109,6 +127,12 @@ async function submit(): Promise<void> {
     update();
     trigger.focus();
   }
+}
+
+function readOptions(): HotstringOptions {
+  const options = {} as HotstringOptions;
+  for (const [key, input] of optionInputs) options[key] = input.checked;
+  return options;
 }
 
 function showDone(reply: SaveReply): void {

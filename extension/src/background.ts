@@ -1,7 +1,7 @@
 // Service worker: opens the capture dialog, and is the only part of the
 // extension that talks to the native host.
 import { captureSelection, type Capture } from './capture.ts';
-import { toHotstring } from './hotstring.ts';
+import { toHotstring, toOptions, type HotstringOptions } from './hotstring.ts';
 import { sendToHost } from './native.ts';
 import type { DialogInit, ErrorReply, ExtensionMessage, FrameMessage, SaveReply, SetupFolderReply } from './protocol.ts';
 import { getSettings, reloadScript, updateSettings } from './settings.ts';
@@ -55,7 +55,7 @@ function route(message: ExtensionMessage, tabId: number | undefined): Promise<un
     case 'dialog.init':
       return initDialog(tabId);
     case 'dialog.save':
-      return save(tabId, String(message.trigger), String(message.text), String(message.file));
+      return save(tabId, String(message.trigger), String(message.text), String(message.file), toOptions(message.options));
     case 'dialog.resize':
       return sendToFrame(tabId, { type: 'frame.resize', height: Number(message.height) });
     case 'dialog.close':
@@ -100,11 +100,11 @@ async function initDialog(tabId: number): Promise<DialogInit> {
       : `There are no .ahk files in ${list.folder} yet.`;
     return { ok: false, error: { code: 'no_files', message }, text };
   }
-  return { ok: true, text, files, file: files.includes(settings.lastFile) ? settings.lastFile : files[0]! };
+  return { ok: true, text, files, file: files.includes(settings.lastFile) ? settings.lastFile : files[0]!, options: settings.defaultOptions };
 }
 
-async function save(tabId: number, trigger: string, text: string, file: string): Promise<SaveReply | ErrorReply> {
-  const result = toHotstring(trigger, text);
+async function save(tabId: number, trigger: string, text: string, file: string, options: HotstringOptions): Promise<SaveReply | ErrorReply> {
+  const result = toHotstring(trigger, text, options);
   if (!result.ok) return { ok: false, error: { code: 'invalid', message: result.errors.join(' ') } };
   const settings = await getSettings();
   const reply = await sendToHost({

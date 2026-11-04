@@ -1,6 +1,7 @@
 // Message shapes between extension pages, the content script, the service
 // worker and the native host. host/handlers.go and host/errors.go are the
 // other side of the host messages.
+import type { HotstringOptions } from './hotstring.ts';
 
 export const HOST_NAME = 'com.gearoid.ahk_clipper';
 
@@ -131,6 +132,8 @@ export interface DialogInitReply {
   text: string;
   files: string[];
   file: string;
+  /** The default options from Settings. */
+  options: HotstringOptions;
 }
 
 /** On failure the dialog still shows the captured text, so nothing is lost. */
@@ -141,7 +144,7 @@ export type ExtensionMessage =
   | { type: 'settings.listFiles'; folder: string }
   | { type: 'settings.setupFolder'; folder: string }
   | { type: 'dialog.init' }
-  | { type: 'dialog.save'; trigger: string; text: string; file: string }
+  | { type: 'dialog.save'; trigger: string; text: string; file: string; options: HotstringOptions }
   | { type: 'dialog.resize'; height: number }
   | { type: 'dialog.close' }
   | { type: 'dialog.openSettings' };
