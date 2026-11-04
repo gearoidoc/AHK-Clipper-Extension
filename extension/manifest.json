@@ -19,6 +19,9 @@
     "page": "options.html",
     "open_in_tab": true
   },
+  "action": {
+    "default_title": "AHK Hotstring Clipper: your hotstrings"
+  },
   "commands": {
     "open-dialog": {
       "suggested_key": {

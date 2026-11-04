@@ -6,7 +6,8 @@ import type { ScannedHotstring } from '../src/protocol.ts';
 import { pasteHint, suggestTrigger } from '../src/suggest.ts';
 
 const existing = (trigger: string, more: Partial<ScannedHotstring> = {}): ScannedHotstring => ({
-  file: 'General.ahk', line: 1, trigger, caseSensitive: false, instant: false, text: 'x', id: '', hash: '0', ...more,
+  file: 'General.ahk', line: 1, trigger, caseSensitive: false, instant: false, options: 'T', kind: 'text',
+  text: 'x', editable: true, id: '', hash: '0', ...more,
 });
 const instant = { ...NO_OPTIONS, immediate: true };
 

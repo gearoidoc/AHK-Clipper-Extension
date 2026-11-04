@@ -87,8 +87,14 @@ export interface ScannedHotstring {
   trigger: string;
   caseSensitive: boolean;
   instant: boolean;
-  /** One-line preview of what it types, or "(runs code)". */
+  /** The options between the first two colons, as written. */
+  options: string;
+  /** 'code' for a hotstring that runs code; then `text` is that code. */
+  kind: 'text' | 'code';
+  /** What it types, decoded, with real line breaks. */
   text: string;
+  /** Whether the editor can show it and write it back unchanged in meaning. */
+  editable: boolean;
   /** The entry id this extension added, or ''. */
   id: string;
   /** Identifies the line's exact contents, for Replace. */
@@ -98,6 +104,8 @@ export interface ScannedHotstring {
 export interface ScanRequest {
   type: 'scan';
   folder: string;
+  /** 0, or a previous reply's `next`. */
+  start: number;
 }
 
 export interface ScanReply {
@@ -107,7 +115,8 @@ export interface ScanReply {
   hotstrings: ScannedHotstring[];
   /** Files that aren't UTF-8 and so weren't scanned. */
   skipped: string[];
-  truncated: boolean;
+  /** Where the next page starts, or 0 when this was the last. */
+  next: number;
 }
 
 /** An existing hotstring to replace in place, as scan reported it. */
@@ -150,7 +159,10 @@ export interface SaveRequest {
   comment: string;
   /** Main script to validate and restart, or '' to restart `file` itself. */
   reload: string;
+  /** Replace this hotstring: in place in its file, or moved to `file`. */
   replace: ReplaceTarget | null;
+  /** On a replace, keep the old entry's source comment. */
+  keepComment: boolean;
 }
 
 export interface SaveReply {
@@ -177,6 +189,33 @@ export interface UndoReply {
   exact: boolean;
 }
 
+export interface DeleteRequest extends ReplaceTarget {
+  type: 'delete';
+  folder: string;
+  ahkPath: string;
+  reload: string;
+}
+
+export interface DeleteReply {
+  ok: true;
+  file: string;
+}
+
+export interface ImportRequest {
+  type: 'import';
+  folder: string;
+  ahkPath: string;
+  reload: string;
+  entries: { file: string; line: string }[];
+}
+
+export interface ImportReply {
+  ok: true;
+  added: number;
+  /** `index` points into the request's entries. */
+  skipped: { index: number; reason: string }[];
+}
+
 export interface HostReplies {
   ping: PingReply;
   listFiles: ListFilesReply;
@@ -184,11 +223,26 @@ export interface HostReplies {
   createFile: CreateFileReply;
   save: SaveReply;
   undo: UndoReply;
+  delete: DeleteReply;
+  import: ImportReply;
 }
 
-export type HostRequest = PingRequest | ListFilesRequest | ScanRequest | CreateFileRequest | SaveRequest | UndoRequest;
+export type HostRequest = PingRequest | ListFilesRequest | ScanRequest | CreateFileRequest | SaveRequest | UndoRequest | DeleteRequest | ImportRequest;
 
 // Extension pages → service worker.
+
+/** Everything the hotstring list needs, gathered from all scan pages. */
+export interface ManagerScanReply {
+  ok: true;
+  folder: string;
+  files: string[];
+  hotstrings: ScannedHotstring[];
+  skipped: string[];
+  /** The main script, which the list doesn't offer as a target, or ''. */
+  mainScript: string;
+  /** The file last saved to, the default for imported rows without one. */
+  lastFile: string;
+}
 
 export interface SetupFolderReply {
   ok: true;
@@ -223,6 +277,12 @@ export type ExtensionMessage =
   | { type: 'dialog.save'; trigger: string; text: string; file: string; options: HotstringOptions; withComment: boolean; replace: ReplaceTarget | null }
   | { type: 'dialog.undo' }
   | { type: 'dialog.createFile'; name: string }
+  // The hotstring list on the Settings page.
+  | { type: 'manager.scan' }
+  | { type: 'manager.save'; trigger: string; text: string; file: string; options: HotstringOptions; replace: ReplaceTarget }
+  | { type: 'manager.delete'; target: ReplaceTarget }
+  | { type: 'manager.createFiles'; names: string[] }
+  | { type: 'manager.import'; entries: { file: string; line: string }[] }
   | { type: 'dialog.resize'; height: number }
   | { type: 'dialog.close' }
   | { type: 'dialog.openSettings' };

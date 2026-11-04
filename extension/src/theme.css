@@ -81,3 +81,62 @@ code {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.9em;
 }
+
+/* Option chips, shared by the dialog and the hotstring editor. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  border: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.chips legend {
+  font-weight: 600;
+  padding: 0;
+  margin-bottom: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 2px 9px;
+  font-weight: normal;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.chip code {
+  font-weight: 600;
+}
+
+/* The checkbox stays focusable for Tab and Space; the chip shows its state. */
+.chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.chip:has(input:checked) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.chip:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}

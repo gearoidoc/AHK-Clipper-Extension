@@ -151,3 +151,261 @@ kbd {
   border-radius: 4px;
   background: var(--surface);
 }
+
+main:has(#panel-hotstrings:not([hidden])) {
+  max-width: 64rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.tabs [role="tab"] {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 0.4rem 0.9rem;
+  color: var(--muted);
+}
+
+.tabs [role="tab"][aria-selected="true"] {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.toolbar input[type="search"] {
+  flex: 1 1 16rem;
+  box-sizing: border-box;
+  padding: 0.35rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.toolbar select,
+.inline select,
+.editor select {
+  padding: 0.3rem 0.4rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.list-status {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.6rem 0;
+  white-space: pre-line;
+}
+
+.list-status[data-state="error"] {
+  color: var(--error);
+}
+
+table.hotstrings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.hotstrings th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding: 0.35rem 0.5rem;
+}
+
+.hotstrings td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+
+.hotstrings td.trigger code {
+  font-weight: 600;
+}
+
+.hotstrings td.text {
+  overflow-wrap: anywhere;
+}
+
+.hotstrings td.text.code {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.hotstrings td.file,
+.hotstrings td.options {
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.hotstrings td.actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.hotstrings td.actions button {
+  padding: 0.15rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.hotstrings td.actions button + button {
+  margin-left: 0.3rem;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.confirm {
+  color: var(--error);
+}
+
+.confirm button {
+  margin-left: 0.35rem;
+}
+
+.editor {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 0.75rem;
+  align-items: start;
+  padding: 0.5rem 0;
+}
+
+.editor label {
+  margin: 0.3rem 0 0;
+}
+
+.editor input[type="text"],
+.editor textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9rem;
+}
+
+.editor textarea {
+  min-height: 4.5em;
+  resize: vertical;
+}
+
+.editor .chips {
+  margin: 0;
+}
+
+.editor .editor-preview {
+  grid-column: 2;
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.editor .editor-preview:empty {
+  display: none;
+}
+
+.editor .editor-error {
+  grid-column: 2;
+  margin: 0;
+  color: var(--error);
+  white-space: pre-wrap;
+}
+
+.editor .editor-error:empty {
+  display: none;
+}
+
+.editor .editor-actions {
+  grid-column: 2;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.import-panel {
+  margin: 0.75rem 0 1rem;
+}
+
+label.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: normal;
+}
+
+.import-table-wrap {
+  max-height: 20rem;
+  overflow: auto;
+  margin: 0.75rem 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+table.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.import-table th,
+.import-table td {
+  text-align: left;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.import-table td[data-status="new"] {
+  color: var(--ok);
+}
+
+.import-table td[data-status="exists"],
+.import-table td[data-status="repeat"],
+.import-table td[data-status="code"] {
+  color: var(--muted);
+}
+
+.import-table td[data-status="invalid"] {
+  color: var(--error);
+}
+
+.import-actions {
+  display: flex;
+  gap: 0.5rem;
+}

@@ -1,6 +1,7 @@
 import { OPTION_INFO, toOptions, type HotstringOptions } from '../hotstring.ts';
 import type { ErrorReply, ExtensionMessage, ListFilesReply, PingReply, SetupFolderReply } from '../protocol.ts';
 import { getSettings, updateSettings, type Settings } from '../settings.ts';
+import { showHotstrings } from './manager.ts';
 
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const folder = byId<HTMLInputElement>('folder');
@@ -21,6 +22,28 @@ const sourceComment = byId<HTMLInputElement>('source-comment');
 
 const send = <T>(message: ExtensionMessage): Promise<T> => chrome.runtime.sendMessage(message);
 let savedTimer: number | undefined;
+
+type Tab = 'hotstrings' | 'settings';
+const TABS: Tab[] = ['hotstrings', 'settings'];
+const askedTab = TABS.find((t) => `#${t}` === location.hash);
+
+function showTab(name: Tab): void {
+  for (const tab of TABS) {
+    byId(`tab-${tab}`).setAttribute('aria-selected', String(tab === name));
+    byId(`panel-${tab}`).hidden = tab !== name;
+  }
+  history.replaceState(null, '', `#${name}`);
+  if (name === 'hotstrings') showHotstrings();
+}
+
+for (const tab of TABS) byId(`tab-${tab}`).addEventListener('click', () => showTab(tab));
+// Settings until the stored settings say there's a folder to list.
+showTab(askedTab ?? 'settings');
+// The toolbar icon asks an already open page to switch to the list.
+chrome.runtime.onMessage.addListener((message: { type?: string }, sender) => {
+  if (sender.id === chrome.runtime.id && message?.type === 'options.showHotstrings') showTab('hotstrings');
+  return false;
+});
 
 void init();
 
@@ -52,6 +75,7 @@ async function init(): Promise<void> {
   const command = (await chrome.commands.getAll()).find((c) => c.name === 'open-dialog');
   byId('shortcut').textContent = command?.shortcut || 'not set';
 
+  if (!askedTab && settings.folder) showTab('hotstrings');
   if (settings.folder) await checkFolder();
 }
 

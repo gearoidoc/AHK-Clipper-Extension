@@ -1,6 +1,6 @@
 {
   "name": "ahk-hotstring-clipper",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Turn highlighted text into an AutoHotkey v2 hotstring, written by a local native host.",
   "private": true,
   "type": "module",
