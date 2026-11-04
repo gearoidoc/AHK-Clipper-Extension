@@ -204,7 +204,8 @@ function showConflicts(options: HotstringOptions): void {
   conflictText.textContent = message;
   conflict.hidden = message === '';
   conflict.dataset.kind = found ? 'duplicate' : 'warning';
-  replaceButton.hidden = !found;
+  // A hotstring that runs code isn't swapped for text from a web page.
+  replaceButton.hidden = !found || found.kind === 'code';
 }
 
 async function submit(replace: boolean): Promise<void> {

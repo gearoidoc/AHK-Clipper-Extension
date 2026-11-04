@@ -1,19 +1,23 @@
 package main
 
 import (
+	"encoding/json/v2"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
 	maxListedFiles = 1000
-	// A scan reply stops at about this many bytes and says where to go on,
-	// staying well under Chrome's 1 MB limit for replies.
+	// A scan reply's hotstrings stop at this many bytes of JSON and the reply
+	// says where to go on, leaving room for the file lists under Chrome's
+	// 1 MB limit for replies.
 	scanPageBytes = 700_000
-	// Rough JSON overhead of one entry besides its text, trigger and file.
-	scanEntryOverhead = 200
+	// One entry's text is cut short past this, so a single huge hand-written
+	// line can't make every scan fail.
+	maxEntryText = 50_000
 )
 
 type listFilesRequest struct {
@@ -85,8 +89,10 @@ type scanEntry struct {
 	Kind     string `json:"kind"`
 	Text     string `json:"text"`
 	Editable bool   `json:"editable"`
-	ID       string `json:"id"`
-	Hash     string `json:"hash"`
+	// Its code continues on the lines below, so it can't be deleted here.
+	Multiline bool   `json:"multiline"`
+	ID        string `json:"id"`
+	Hash      string `json:"hash"`
 }
 
 type scanReply struct {
@@ -131,20 +137,29 @@ func handleScan(raw []byte) (any, error) {
 			if index++; index <= req.Start {
 				continue
 			}
-			entrySize := len(h.Text) + len(h.Trigger) + len(name) + scanEntryOverhead
-			if size > 0 && size+entrySize > scanPageBytes {
-				reply.Next = index - 1
-				return reply, nil
-			}
-			size += entrySize
 			kind := "text"
 			if h.Code {
 				kind = "code"
 			}
-			reply.Hotstrings = append(reply.Hotstrings, scanEntry{
+			e := scanEntry{
 				File: name, Line: h.Line, Trigger: h.Trigger, CaseSensitive: h.CaseSensitive, Instant: h.Instant,
-				Options: h.Options, Kind: kind, Text: h.Text, Editable: h.Editable, ID: h.ID, Hash: h.Hash,
-			})
+				Options: h.Options, Kind: kind, Text: h.Text, Editable: h.Editable, Multiline: h.Multiline, ID: h.ID, Hash: h.Hash,
+			}
+			if len(e.Text) > maxEntryText {
+				e.Text = truncateUTF8(e.Text, maxEntryText) + "\u2026"
+				e.Editable = false
+			}
+			// Measured as JSON, since escaping can double the size of text.
+			encoded, err := json.Marshal(e)
+			if err != nil {
+				return nil, err
+			}
+			if size > 0 && size+len(encoded) > scanPageBytes {
+				reply.Next = index - 1
+				return reply, nil
+			}
+			size += len(encoded)
+			reply.Hotstrings = append(reply.Hotstrings, e)
 		}
 	}
 	return reply, nil
@@ -244,4 +259,12 @@ func categoryTemplate(title string) string {
 		marker,
 		"",
 	}, crlf)
+}
+
+// truncateUTF8 cuts s to at most n bytes without splitting a character.
+func truncateUTF8(s string, n int) string {
+	for n > 0 && n < len(s) && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }

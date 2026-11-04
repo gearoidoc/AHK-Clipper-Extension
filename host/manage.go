@@ -60,7 +60,7 @@ func handleDelete(raw []byte) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := commit(exe, entry, []change{{target, tf, tf.encode(cut.insert(nil))}}); err != nil {
+	if err := commit(exe, []string{entry}, []change{{target, tf, tf.encode(cut.insert(nil))}}); err != nil {
 		return nil, err
 	}
 	return deleteReply{OK: true, File: filepath.Base(target)}, nil
@@ -156,26 +156,13 @@ func handleImport(raw []byte) (any, error) {
 		}
 	}
 
-	// Files being changed, with their text so far.
-	type working struct {
-		path string
-		file *textFile
-		text string
-	}
-	work := map[string]*working{}
-	open := func(path string) (*working, error) {
-		if w, ok := work[path]; ok {
-			return w, nil
-		}
-		f, err := readText(path)
+	set := newEdits()
+	open := func(path string) (*edit, error) {
+		ed, err := set.open(path)
 		if err != nil {
 			return nil, err
 		}
-		if err := checkExecuteDefault(path, f); err != nil {
-			return nil, err
-		}
-		work[path] = &working{path, f, f.text}
-		return work[path], nil
+		return ed, checkExecuteDefault(path, ed.file)
 	}
 
 	reply := importReply{OK: true, Skipped: []importSkip{}}
@@ -212,15 +199,15 @@ func handleImport(raw []byte) (any, error) {
 		}
 		w.text = appendEntry(w.text, accepted[file]...)
 	}
-	commitEntry := entry
+	var entries []string
 	if entry == "" {
-		// Without a main script each file restarts itself; a single
-		// validation needs one entry, so imports then go file by file.
-		if len(order) > 1 {
-			return nil, fail(codeBadRequest, "importing into several files needs a main script to restart")
+		// Without a main script each file runs on its own, so every file
+		// the import adds to is validated and restarted.
+		for _, file := range order {
+			entries = append(entries, targets[file])
 		}
-		commitEntry = targets[order[0]]
 	} else {
+		entries = []string{entry}
 		ew, err := open(entry)
 		if err != nil {
 			return nil, err
@@ -231,13 +218,7 @@ func handleImport(raw []byte) (any, error) {
 			}
 		}
 	}
-	var changes []change
-	for _, w := range work {
-		if w.text != w.file.text {
-			changes = append(changes, change{w.path, w.file, w.file.encode(w.text)})
-		}
-	}
-	if err := commit(exe, commitEntry, changes); err != nil {
+	if err := commit(exe, entries, set.changes()); err != nil {
 		return nil, err
 	}
 	return reply, nil

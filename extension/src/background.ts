@@ -283,13 +283,16 @@ async function managerDelete(target: ReplaceTarget | null): Promise<DeleteReply 
   return sendToHost({ type: 'delete', folder: settings.folder, ahkPath: settings.ahkPath, reload: reloadScript(settings), ...target });
 }
 
-/** Creates the category files an import needs before it runs. */
+/**
+ * Creates the category files an import needs before it runs. A file that
+ * already exists is fine: a retried import may have created it last time.
+ */
 async function createFiles(names: string[]): Promise<{ ok: true; created: string[] } | ErrorReply> {
   const created: string[] = [];
   for (const name of names) {
     const reply = await createCategory(name);
-    if (!reply.ok) return reply;
-    created.push(reply.file);
+    if (reply.ok) created.push(reply.file);
+    else if (reply.error.code !== 'file_exists') return reply;
   }
   return { ok: true, created };
 }

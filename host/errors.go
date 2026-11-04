@@ -24,6 +24,7 @@ const (
 	codeHotstringX      = "hotstring_x"
 	codeDuplicate       = "duplicate"
 	codeFileChanged     = "file_changed"
+	codeCodeBlock       = "code_block"
 	codeIOError         = "io_error"
 )
 

@@ -27,6 +27,7 @@ export type HostErrorCode =
   | 'hotstring_x'
   | 'duplicate'
   | 'file_changed'
+  | 'code_block'
   | 'io_error'
   // Set by native.ts when Chrome can't reach the host.
   | 'host_missing'
@@ -95,6 +96,8 @@ export interface ScannedHotstring {
   text: string;
   /** Whether the editor can show it and write it back unchanged in meaning. */
   editable: boolean;
+  /** Its code continues on the lines below, so only a hand edit can remove it. */
+  multiline: boolean;
   /** The entry id this extension added, or ''. */
   id: string;
   /** Identifies the line's exact contents, for Replace. */

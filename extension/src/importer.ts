@@ -38,7 +38,21 @@ export interface ImportContext {
   hotstrings: readonly ScannedHotstring[];
 }
 
-const BAD_FILE_NAME = /[<>:"/\\|?*\x00-\x1f]|^[.\s]/;
+const BAD_CHARS = /[<>:"/\\|?*\x00-\x1f]/;
+const RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+const MAX_NAME = 100;
+
+/** Why the host would refuse this .ahk file name (host/paths.go checkName), or ''. */
+export function fileNameProblem(name: string): string {
+  const stem = name.replace(/\.ahk$/i, '');
+  if (!/\.ahk$/i.test(name) || stem === '') return `"${name}" isn't an .ahk file name.`;
+  // The host counts bytes of UTF-8, so accented names reach the limit sooner.
+  if (new TextEncoder().encode(name).length > MAX_NAME) return `File names can be at most ${MAX_NAME} characters.`;
+  if (BAD_CHARS.test(name)) return 'File names can\'t contain \\ / : * ? " < > | or control characters.';
+  if (/^[. ]/.test(name) || /[. ]$/.test(stem)) return "File names can't start with a dot or a space, or end with one before .ahk.";
+  if (RESERVED.test(stem.split('.')[0]!)) return `"${name}" is a reserved name on Windows.`;
+  return '';
+}
 
 /** The rows of an export: one per hotstring, with the columns in CSV_COLUMNS. */
 export function exportRows(hotstrings: readonly ScannedHotstring[]): string[][] {
@@ -65,12 +79,16 @@ export function planImport(csvText: string, context: ImportContext): ImportPlan 
     return plan;
   }
 
-  const known = new Set(context.files.map((f) => f.toLowerCase()));
+  // Windows file names ignore case, so "general" means the existing General.ahk
+  // and "Work" and "work" are one new file.
+  const byLowerName = new Map(context.files.map((f) => [f.toLowerCase(), f]));
+  const known = new Set(byLowerName.keys());
   const accepted: ImportRow[] = [];
   data.forEach((cells, i) => {
     const cell = (index: number) => (index >= 0 ? unguardCell(cells[index] ?? '') : '');
     let file = cell(columns.file).trim() || context.defaultFile;
     if (file && !/\.ahk$/i.test(file)) file += '.ahk';
+    file = byLowerName.get(file.toLowerCase()) ?? file;
     const row: ImportRow = {
       row: i + 2,
       file,
@@ -89,9 +107,10 @@ export function planImport(csvText: string, context: ImportContext): ImportPlan 
       row.detail = 'Runs code, so it can only be added by hand.';
       return;
     }
-    if (!file || BAD_FILE_NAME.test(file)) {
+    const nameProblem = file ? fileNameProblem(file) : 'No file given, and no default file chosen.';
+    if (nameProblem) {
       row.status = 'invalid';
-      row.detail = file ? `"${file}" isn't a usable file name.` : 'No file given, and no default file chosen.';
+      row.detail = nameProblem;
       return;
     }
     if (!options) {
@@ -120,7 +139,11 @@ export function planImport(csvText: string, context: ImportContext): ImportPlan 
       return;
     }
     accepted.push(row);
-    if (!known.has(file.toLowerCase()) && !plan.newFiles.includes(file)) plan.newFiles.push(file);
+    if (!known.has(file.toLowerCase())) {
+      byLowerName.set(file.toLowerCase(), file);
+      known.add(file.toLowerCase());
+      plan.newFiles.push(file);
+    }
   });
   return plan;
 }

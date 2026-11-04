@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // fakeRunner records AutoHotkey calls and fails the ones it's told to.
@@ -38,6 +39,9 @@ func readAll(dir string) map[string]string {
 	files := map[string]string{}
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
+		if e.Name() == lockName {
+			continue
+		}
 		data, _ := os.ReadFile(filepath.Join(dir, e.Name()))
 		files[e.Name()] = string(data)
 	}
@@ -146,9 +150,7 @@ func TestSaveAppendsValidatesAndRestarts(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(s.folder, "General.ahk.bak")); err != nil {
 		t.Fatal("no backup:", err)
 	}
-	if _, err := os.Stat(filepath.Join(s.folder, lockName)); !os.IsNotExist(err) {
-		t.Fatal("lock left behind")
-	}
+	assertUnlocked(t, s.folder)
 }
 
 func TestSaveAddsTheIncludeForANewCategory(t *testing.T) {
@@ -192,9 +194,7 @@ func TestSaveRestoresEverythingWhenAutoHotkeyRejectsIt(t *testing.T) {
 					t.Errorf("%s changed:\n%q\n%q", name, data, after[name])
 				}
 			}
-			if _, err := os.Stat(filepath.Join(s.folder, lockName)); !os.IsNotExist(err) {
-				t.Fatal("lock left behind")
-			}
+			assertUnlocked(t, s.folder)
 		})
 	}
 }
@@ -252,4 +252,15 @@ func TestSaveRefusesBadRequests(t *testing.T) {
 	if len(s.fake.calls) != 0 {
 		t.Fatalf("AutoHotkey ran for a refused save: %v", s.fake.calls)
 	}
+}
+
+// assertUnlocked checks the folder lock was released.
+func assertUnlocked(t *testing.T, folder string) {
+	t.Helper()
+	start := time.Now()
+	unlock, err := lockFolder(folder)
+	if err != nil || time.Since(start) > 200*time.Millisecond {
+		t.Fatalf("the folder lock wasn't released: %v", err)
+	}
+	unlock()
 }

@@ -143,20 +143,18 @@ func TestLockFolder(t *testing.T) {
 		t.Fatalf("gave up after %v", waited)
 	}
 	unlock()
-	if unlock2, err := lockFolder(dir); err != nil {
+	unlock2, err := lockFolder(dir)
+	if err != nil {
 		t.Fatalf("lock after unlock: %v", err)
-	} else {
-		unlock2()
 	}
+	unlock2()
 
-	// A lock left by a crashed host is taken over once it's stale.
-	stale := filepath.Join(dir, lockName)
-	os.WriteFile(stale, nil, 0o600)
-	old := time.Now().Add(-2 * staleLock)
-	os.Chtimes(stale, old, old)
-	if unlock3, err := lockFolder(dir); err != nil {
-		t.Fatalf("stale lock not taken over: %v", err)
-	} else {
-		unlock3()
+	// A lock file left by a crashed host isn't held by anyone, so it doesn't block.
+	os.WriteFile(filepath.Join(dir, lockName), []byte("left over"), 0o600)
+	start = time.Now()
+	unlock3, err := lockFolder(dir)
+	if err != nil || time.Since(start) > 200*time.Millisecond {
+		t.Fatalf("leftover lock file blocked: %v after %v", err, time.Since(start))
 	}
+	unlock3()
 }

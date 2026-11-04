@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -95,11 +96,12 @@ func handleSave(raw []byte) (any, error) {
 	}
 	defer unlock()
 
-	tf, err := readText(target)
+	set := newEdits()
+	t, err := set.open(target)
 	if err != nil {
 		return nil, err
 	}
-	if err := checkExecuteDefault(target, tf); err != nil {
+	if err := checkExecuteDefault(target, t.file); err != nil {
 		return nil, err
 	}
 	id := newID()
@@ -114,33 +116,29 @@ func handleSave(raw []byte) (any, error) {
 		return append([]string{comment}, entryLines...)
 	}
 
-	var changes []change
-	switch {
-	case req.Replace == nil:
-		changes = []change{{target, tf, tf.encode(appendEntry(tf.text, withComment("")...))}}
-	case req.Replace.File == req.File:
-		cut, err := cutEntry(tf.text, req.Replace)
-		if err != nil {
-			return nil, err
-		}
-		changes = []change{{target, tf, tf.encode(cut.insert(withComment(cut.keptComment(req.KeepComment))))}}
-	default:
-		// A move: out of the old file, onto the end of the new one.
+	moveSource := ""
+	if req.Replace == nil {
+		t.text = appendEntry(t.text, withComment("")...)
+	} else {
 		source, err := resolveFile(folder, req.Replace.File, true)
 		if err != nil {
 			return nil, err
 		}
-		sf, err := readText(source)
+		s, err := set.open(source)
 		if err != nil {
 			return nil, err
 		}
-		cut, err := cutEntry(sf.text, req.Replace)
+		cut, err := cutEntry(s.text, req.Replace)
 		if err != nil {
 			return nil, err
 		}
-		changes = []change{
-			{target, tf, tf.encode(appendEntry(tf.text, withComment(cut.keptComment(req.KeepComment))...))},
-			{source, sf, sf.encode(cut.insert(nil))},
+		if samePath(source, target) {
+			t.text = cut.insert(withComment(cut.keptComment(req.KeepComment)))
+		} else {
+			// A move: out of the old file, onto the end of the new one.
+			s.text = cut.insert(nil)
+			t.text = appendEntry(t.text, withComment(cut.keptComment(req.KeepComment))...)
+			moveSource = source
 		}
 	}
 	// After cutEntry, so a stale replace reads as "changed", not "duplicate".
@@ -150,19 +148,25 @@ func handleSave(raw []byte) (any, error) {
 
 	includeAdded := false
 	if !samePath(entry, target) {
-		ef, err := readText(entry)
+		e, err := set.open(entry)
 		if err != nil {
 			return nil, err
 		}
-		if err := checkExecuteDefault(entry, ef); err != nil {
+		if err := checkExecuteDefault(entry, e.file); err != nil {
 			return nil, err
 		}
-		if !includesFile(ef.text, folder, filepath.Base(target)) {
-			changes = append(changes, change{entry, ef, ef.encode(addInclude(ef.text, filepath.Base(target)))})
+		if !includesFile(e.text, folder, filepath.Base(target)) {
+			e.text = addInclude(e.text, filepath.Base(target))
 			includeAdded = true
 		}
 	}
-	if err := commit(exe, entry, changes); err != nil {
+	entries := []string{entry}
+	if req.Reload == "" && moveSource != "" {
+		// Each file runs as its own script, so the one the hotstring left
+		// needs restarting too, or its old copy keeps firing.
+		entries = append(entries, moveSource)
+	}
+	if err := commit(exe, entries, set.changes()); err != nil {
 		return nil, err
 	}
 	return saveReply{
@@ -172,7 +176,7 @@ func handleSave(raw []byte) (any, error) {
 		Entry:        filepath.Base(entry),
 		IncludeAdded: includeAdded,
 		Replaced:     req.Replace != nil,
-		Undo:         undoToken{File: filepath.Base(target), ID: id, Sha256: fileHash(changes[0].data)},
+		Undo:         undoToken{File: filepath.Base(target), ID: id, Sha256: fileHash(t.file.encode(t.text))},
 	}, nil
 }
 
@@ -233,6 +237,9 @@ func cutEntry(text string, r *replaceTarget) (cutResult, error) {
 	if i < 0 || i >= len(lines) || lineHash(strings.TrimSuffix(lines[i], "\r")) != r.Hash {
 		return cutResult{}, fail(codeFileChanged, "%s changed since the hotstrings were listed. Refresh and try again.", r.File)
 	}
+	if h, ok := parseHotstringLine(strings.TrimSuffix(lines[i], "\r")); ok && h.Multiline {
+		return cutResult{}, fail(codeCodeBlock, "The code of %s continues on the lines below it, so change or delete it by hand in %s.", h.Trigger, r.File)
+	}
 	cut := cutResult{at: i}
 	if strings.HasSuffix(lines[i], "\r") {
 		cut.eol = "\r"
@@ -279,19 +286,80 @@ type change struct {
 	data []byte
 }
 
+// edits collects the new text of every file one request changes, so two
+// changes to the same file build on each other. A move out of the main
+// script that also adds an #Include to it is the case that needs this.
+type edits struct {
+	order []string
+	files map[string]*edit
+}
+
+type edit struct {
+	file *textFile
+	text string
+}
+
+func newEdits() *edits {
+	return &edits{files: map[string]*edit{}}
+}
+
+// open returns the file's pending edit, reading it the first time.
+func (e *edits) open(path string) (*edit, error) {
+	if ed, ok := e.files[path]; ok {
+		return ed, nil
+	}
+	f, err := readText(path)
+	if err != nil {
+		return nil, err
+	}
+	e.files[path] = &edit{file: f, text: f.text}
+	e.order = append(e.order, path)
+	return e.files[path], nil
+}
+
+// changes lists the files whose text actually changed, in the order opened.
+func (e *edits) changes() []change {
+	var out []change
+	for _, path := range e.order {
+		if ed := e.files[path]; ed.text != ed.file.text {
+			out = append(out, change{path, ed.file, ed.file.encode(ed.text)})
+		}
+	}
+	return out
+}
+
 // commit writes the changes and makes them live. It either succeeds
-// completely or leaves every file as it was: each file's .bak is refreshed
-// and the file replaced atomically, the entry script is validated with
-// AutoHotkey, and only then restarted. Any failure restores the original
-// bytes.
-func commit(exe, entry string, changes []change) error {
+// completely or leaves every file, and every .bak, as it was: each file's
+// .bak is refreshed and the file replaced atomically, every entry script is
+// validated with AutoHotkey, and only then restarted. Any failure restores
+// the original bytes. The entries are the main script, or, when each file
+// runs on its own, every script the request changed.
+func commit(exe string, entries []string, changes []change) error {
+	type backup struct {
+		path    string
+		data    []byte
+		existed bool
+	}
+	var backups []backup
 	restore := func() {
 		for _, c := range changes {
 			writeFile(c.path, c.file.original)
 		}
+		// A failed commit mustn't leave a .bak that Undo would mistake for
+		// the state before an earlier save.
+		for _, b := range backups {
+			if b.existed {
+				writeFile(b.path, b.data)
+			} else {
+				os.Remove(b.path)
+			}
+		}
 	}
 	for _, c := range changes {
-		if err := writeFile(c.path+".bak", c.file.original); err != nil {
+		bak := c.path + ".bak"
+		old, err := os.ReadFile(bak)
+		backups = append(backups, backup{bak, old, err == nil})
+		if err := writeFile(bak, c.file.original); err != nil {
 			restore()
 			return err
 		}
@@ -300,13 +368,17 @@ func commit(exe, entry string, changes []change) error {
 			return err
 		}
 	}
-	if err := runner.Validate(exe, entry); err != nil {
-		restore()
-		return err
+	for _, entry := range entries {
+		if err := runner.Validate(exe, entry); err != nil {
+			restore()
+			return err
+		}
 	}
-	if err := runner.Restart(exe, entry); err != nil {
-		restore()
-		return err
+	for _, entry := range entries {
+		if err := runner.Restart(exe, entry); err != nil {
+			restore()
+			return err
+		}
 	}
 	return nil
 }

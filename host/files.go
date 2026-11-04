@@ -13,11 +13,9 @@ import (
 )
 
 const (
-	marker   = "; --- Added by Hotstring Clipper ---"
-	crlf     = "\r\n"
-	lockName = ".hotstring-clipper.lock"
-	// A host that crashed mid-save leaves its lock behind; saves take well under this.
-	staleLock   = 30 * time.Second
+	marker      = "; --- Added by Hotstring Clipper ---"
+	crlf        = "\r\n"
+	lockName    = ".hotstring-clipper.lock"
 	lockTimeout = 2 * time.Second
 )
 
@@ -114,22 +112,18 @@ func createFile(path string, data []byte) error {
 }
 
 // lockFolder serialises writes to one folder across host processes: Chrome
-// starts a separate host for every message.
+// starts a separate host for every message. The lock is held by the
+// operating system (see tryLock), so a host that crashes releases it.
 func lockFolder(folder string) (unlock func(), err error) {
 	path := filepath.Join(folder, lockName)
 	deadline := time.Now().Add(lockTimeout)
 	for {
-		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if err == nil {
-			f.Close()
-			return func() { os.Remove(path) }, nil
-		}
-		if !errors.Is(err, fs.ErrExist) {
+		unlock, busy, err := tryLock(path)
+		if err != nil {
 			return nil, err
 		}
-		if info, statErr := os.Stat(path); statErr == nil && time.Since(info.ModTime()) > staleLock {
-			os.Remove(path)
-			continue
+		if !busy {
+			return unlock, nil
 		}
 		if time.Now().After(deadline) {
 			return nil, fail(codeLocked, "Another save to this folder is still running. Try again in a moment.")
