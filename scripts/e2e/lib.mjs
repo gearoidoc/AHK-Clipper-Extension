@@ -113,3 +113,21 @@ export async function waitFor(fn, timeout = 5000) {
   }
   return value;
 }
+
+export const FAKE_AHK = `#!/bin/sh
+# Stands in for AutoHotkey64.exe: logs its arguments, fails /Validate while a
+# fail-validate file sits next to it, and stays up briefly after /restart like
+# a running script.
+dir=$(dirname "$0")
+printf '%s\\n' "$*" >> "$dir/calls.log"
+case " $* " in
+  *" /Validate "*)
+    if [ -e "$dir/fail-validate" ]; then
+      echo "General.ahk (7) : ==> This line does not contain a recognized action." >&2
+      exit 2
+    fi ;;
+  *" /restart "*)
+    sleep 2 ;;
+esac
+exit 0
+`;
